@@ -10,7 +10,7 @@ const logRocketScript = fs.readFileSync('./logrocket_loader.js', 'utf8');
 async function runScript({
     useCloudEnv=false,
     websiteTarget,
-    instructionsPrompt,
+    instructionsPrompts,
     timeoutSeconds=300, // 5 minutes
 }) {    
     let stagehand;
@@ -22,7 +22,9 @@ async function runScript({
             apiKey: process.env.BROWSERBASE_API_KEY,
             projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
             env: "BROWSERBASE",
-
+            logInferenceToFile: true,
+            verbose: 2,
+        
             browserbaseSessionCreateParams: {
                 projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
                 browserSettings: {
@@ -54,12 +56,12 @@ async function runScript({
 
     await stagehand.init();
 
-    await stagehand.page.goto(websiteTarget, { timeout: 60000 }); // 60 seconds
-
-    // await stagehand.page.waitForLoadState('networkidle');
+    await stagehand.page.goto(websiteTarget,  { waitUntil: "domcontentloaded" }); 
 
     await stagehand.page.evaluate(logRocketScript);
     
+
+    // 50% of the time, call LogRocket.identify() with a fake user
     if (Math.random() < 0.5) {
         const fakeName = faker.person.fullName();
         const fakeID = faker.string.uuid();
@@ -78,7 +80,7 @@ async function runScript({
     }
 
     stagehand.page.on('load', async () => {
-        console.log('PAGE LOAD DETEFCTED')
+        // Inject LogRocket script on each page load
         await stagehand.page.evaluate(logRocketScript);
     });
     
@@ -98,22 +100,24 @@ async function runScript({
         
         If there are any cookie banners or pop ups, always click "accept", or "I Understand" or whatever is needed to approve the banner.`,
     
+        verbose: true,
+
         // Customize the API key
         options: {
             apiKey: process.env.ANTHROPIC_API_KEY,
         },
     });
-    // Enable logging for the agent's chain of thought
-    agent.enableLogs = true;
+      
     
-    // Execute the agent
-    await agent.execute(instructionsPrompt);
+    // Execute each prompt
+    for (const prompt of instructionsPrompts) {
+        console.log(await agent.execute(prompt));
+    }
     
         
-     
 }
 
-async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompt}) {
+async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompts}) {
     const promises = [];
     for (let i = 0; i < numSessions; i++) {
         // create a random timeout between 2 and 10 minutes to represent the duration of the user session
@@ -124,7 +128,7 @@ async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, ins
         promises.push(runScript({
             useCloudEnv,
             websiteTarget,
-            instructionsPrompt,
+            instructionsPrompts,
             timeoutSeconds,
         }))
     }
@@ -135,10 +139,11 @@ async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, ins
 
 runMultipleSessions({
     useCloudEnv: true,
-    numSessions: 5,
+    numSessions: 1,
     websiteTarget: 'https://www.ulta.com',
-    instructionsPrompt: `Browse around the site and view a few different products. 
-        If a product has configuration options, then try a few configurations of the product. 
-        Then add one to your cart and attempt to check out`
+    instructionsPrompts: [`Browse around the site and view 3 different products.`,
+        `Think of ideas of makeup or beauty products and search for each. Look at 1-2 potential configurioans for each product.`,
+        `Choose one product and add it to your cart and try to check out`,
+    ]
 });
 
