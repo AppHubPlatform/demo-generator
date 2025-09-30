@@ -1,0 +1,21 @@
+{
+  "name": "demo-monkey-typist",
+  "version": "1.0.0",
+  "description": "Browser automation demo using Stagehand",
+  "type": "module",
+  "main": "run_script.js",
+  "scripts": {
+    "start": "node run_script.js"
+  },
+  "dependencies": {
+    "@browserbasehq/stagehand": "^2.0.0",
+    "@faker-js/faker": "^10.0.0",
+    "dotenv": "^16.4.5"
+  },
+  "keywords": [
+    "browser-automation",
+    "stagehand"
+  ],
+  "author": "",
+  "license": "ISC"
+}

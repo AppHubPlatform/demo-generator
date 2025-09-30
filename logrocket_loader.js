@@ -13,7 +13,7 @@
   const serverURL = urlParams.get('serverURL') || 'https://staging-i.logrocket.io/i';
   const dashboardHost = urlParams.get('dashboardHost') || 'https://staging.logrocket.com';
   const appID = urlParams.get('appID') || 'apphub/infinite-monkeys';
-  const shouldAutoIdentify = urlParams.get('autoIdentify') === 'true';
+  const shouldAutoIdentify = urlParams.get('autoIdentify') === 'false';
   const shouldAutoSanitizeInput = urlParams.get('autoSanitizeInput') === 'true';
   const shouldAutoSanitizeText = urlParams.get('autoSanitizeText') === 'true';
   const shouldAutoRedux = urlParams.get('autoRedux') === 'true';

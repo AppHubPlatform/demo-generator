@@ -45,7 +45,7 @@ async function runScript(useCloudEnv=false) {
 
     await stagehand.init();
 
-    await stagehand.page.goto("https://www.ulta.com");
+    await stagehand.page.goto("https://www.ulta.com", { timeout: 60000 }); // 60 seconds
 
     // await stagehand.page.waitForLoadState('networkidle');
 
@@ -89,4 +89,25 @@ async function runScript(useCloudEnv=false) {
      
 }
 
-runScript(true);
+// runScript(true);
+
+async function runMultipleSessions(numSessions) {
+    const promises = [];
+    for (let i = 0; i < numSessions; i++) {
+        // create a random timeout between 30 seconds and 5 minutes to represent the duration of the user session
+        const timeoutMs = Math.random() * (5 * 60 * 1000 - 30 * 1000) + 30 * 1000; 
+        console.log(`Starting session ${i} with timeout of ${Math.round(timeoutMs/1000)}s`);
+        
+        const sessionPromise = Promise.race([
+            runScript(true),
+            new Promise((resolve) => 
+            setTimeout(() => resolve(`Session ${i} killed after ${Math.round(timeoutMs/1000)}s`), timeoutMs)
+            )
+        ]);
+        
+        promises.push(sessionPromise);
+    }
+    await Promise.all(promises);
+}
+
+runMultipleSessions(5);
