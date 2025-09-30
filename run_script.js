@@ -1,12 +1,18 @@
 import { Stagehand } from "@browserbasehq/stagehand";
 import fs from 'fs';
 import "dotenv/config";
+import { faker } from '@faker-js/faker';
 
 const logRocketScript = fs.readFileSync('./logrocket_loader.js', 'utf8');
 
 
 
-async function runScript(useCloudEnv=false) {    
+async function runScript({
+    useCloudEnv=false,
+    websiteTarget,
+    instructionsPrompt,
+    timeoutSeconds=300, // 5 minutes
+}) {    
     let stagehand;
     
     if (useCloudEnv) {
@@ -22,10 +28,13 @@ async function runScript(useCloudEnv=false) {
                 browserSettings: {
                     blockAds: false,
                     viewport: {
-                    width: 1024,
-                    height: 768,
+                        width: 1024,
+                        height: 768,
                     },
+                    solveCaptchas: true,
                 },
+            timeout: timeoutSeconds,
+            keepAlive: true,
             }    
         });
     } else {
@@ -45,11 +54,28 @@ async function runScript(useCloudEnv=false) {
 
     await stagehand.init();
 
-    await stagehand.page.goto("https://www.ulta.com", { timeout: 60000 }); // 60 seconds
+    await stagehand.page.goto(websiteTarget, { timeout: 60000 }); // 60 seconds
 
     // await stagehand.page.waitForLoadState('networkidle');
 
     await stagehand.page.evaluate(logRocketScript);
+    
+    if (Math.random() < 0.5) {
+        const fakeName = faker.person.fullName();
+        const fakeID = faker.string.uuid();
+
+        const randomNumber = Math.floor(Math.random() * 101); // 0-100
+        const emailDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'me.com'];
+        const randomDomain = emailDomains[Math.floor(Math.random() * emailDomains.length)];
+        const fakeEmail = fakeName.toLowerCase().replace(/\s+/g, '.') + randomNumber + '@' + randomDomain;
+
+        await stagehand.page.evaluate(`(() => {
+            window.LogRocket && window.LogRocket.identify('${fakeID}', {
+                name: '${fakeName}',
+                email: '${fakeEmail}',
+            });
+        })()`);
+    }
 
     stagehand.page.on('load', async () => {
         console.log('PAGE LOAD DETEFCTED')
@@ -81,33 +107,37 @@ async function runScript(useCloudEnv=false) {
     agent.enableLogs = true;
     
     // Execute the agent
-    await agent.execute(`Browse around the site and view a few different products. 
-        If a product has configuration options, then try a few configurations of the product. 
-        Then add one to your cart and attempt to check out`);
+    await agent.execute(instructionsPrompt);
     
         
      
 }
 
-// runScript(true);
-
-async function runMultipleSessions(numSessions) {
+async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompt}) {
     const promises = [];
     for (let i = 0; i < numSessions; i++) {
         // create a random timeout between 30 seconds and 5 minutes to represent the duration of the user session
-        const timeoutMs = Math.random() * (5 * 60 * 1000 - 30 * 1000) + 30 * 1000; 
-        console.log(`Starting session ${i} with timeout of ${Math.round(timeoutMs/1000)}s`);
+        const timeoutSeconds = Math.round(Math.random() * (5 * 60 - 30) + 30); 
+        console.log(`Starting session ${i} with timeout of ${timeoutSeconds}s`);
         
-        const sessionPromise = Promise.race([
-            runScript(true),
-            new Promise((resolve) => 
-            setTimeout(() => resolve(`Session ${i} killed after ${Math.round(timeoutMs/1000)}s`), timeoutMs)
-            )
-        ]);
-        
-        promises.push(sessionPromise);
+        promises.push(runScript({
+            useCloudEnv,
+            websiteTarget,
+            instructionsPrompt,
+            timeoutSeconds,
+        }))
     }
     await Promise.all(promises);
 }
 
-runMultipleSessions(5);
+
+
+// runMultipleSessions({
+//     useCloudEnv: true,
+//     numSessions: 5,
+//     websiteTarget: 'https://www.ulta.com',
+//     instructionsPrompt: `Browse around the site and view a few different products. 
+//         If a product has configuration options, then try a few configurations of the product. 
+//         Then add one to your cart and attempt to check out`
+// });
+
