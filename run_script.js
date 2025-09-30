@@ -116,8 +116,9 @@ async function runScript({
 async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompt}) {
     const promises = [];
     for (let i = 0; i < numSessions; i++) {
-        // create a random timeout between 30 seconds and 5 minutes to represent the duration of the user session
-        const timeoutSeconds = Math.round(Math.random() * (5 * 60 - 30) + 30); 
+        // create a random timeout between 2 and 10 minutes to represent the duration of the user session
+        const timeoutSeconds = 
+        Math.floor(Math.random() * (600 - 120 + 1)) + 120;
         console.log(`Starting session ${i} with timeout of ${timeoutSeconds}s`);
         
         promises.push(runScript({
@@ -132,12 +133,12 @@ async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, ins
 
 
 
-// runMultipleSessions({
-//     useCloudEnv: true,
-//     numSessions: 5,
-//     websiteTarget: 'https://www.ulta.com',
-//     instructionsPrompt: `Browse around the site and view a few different products. 
-//         If a product has configuration options, then try a few configurations of the product. 
-//         Then add one to your cart and attempt to check out`
-// });
+runMultipleSessions({
+    useCloudEnv: true,
+    numSessions: 5,
+    websiteTarget: 'https://www.ulta.com',
+    instructionsPrompt: `Browse around the site and view a few different products. 
+        If a product has configuration options, then try a few configurations of the product. 
+        Then add one to your cart and attempt to check out`
+});
 
