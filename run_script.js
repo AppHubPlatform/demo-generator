@@ -121,8 +121,7 @@ async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, ins
     const promises = [];
     for (let i = 0; i < numSessions; i++) {
         // create a random timeout between 2 and 10 minutes to represent the duration of the user session
-        const timeoutSeconds = 
-        Math.floor(Math.random() * (600 - 120 + 1)) + 120;
+        const timeoutSeconds = Math.floor(Math.random() * (600 - 120 + 1)) + 120;
         console.log(`Starting session ${i} with timeout of ${timeoutSeconds}s`);
         
         promises.push(runScript({
