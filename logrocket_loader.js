@@ -10,9 +10,9 @@
   // Extract configuration from URL parameters
   const scriptSrc = urlParams.get('scriptSrc') || 'https://cdn.lgrckt-in.com/LogRocket.min.js';
   const asyncScriptSrc = urlParams.get('asyncScriptSrc') || 'https://cdn.lgrckt-in.com/logger.min.js';
-  const serverURL = urlParams.get('serverURL') || 'https://staging-i.logrocket.io/i';
-  const dashboardHost = urlParams.get('dashboardHost') || 'https://staging.logrocket.com';
-  const appID = urlParams.get('appID') || 'apphub/infinite-monkeys';
+  const serverURL = urlParams.get('serverURL') || 'https://r.lgrckt-in.com/i';
+  const dashboardHost = urlParams.get('dashboardHost') || 'https://app.logrocket.com';
+  const appID = urlParams.get('appID') || 'public-shares/credit-karma';
   const shouldAutoIdentify = urlParams.get('autoIdentify') === 'false';
   const shouldAutoSanitizeInput = urlParams.get('autoSanitizeInput') === 'true';
   const shouldAutoSanitizeText = urlParams.get('autoSanitizeText') === 'true';
