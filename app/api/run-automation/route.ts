@@ -15,6 +15,11 @@ export async function POST(request: NextRequest) {
         const body = await request.json() as RequestBody;
         const { mode, useCloudEnv, websiteTarget, instructionsPrompts, numSessions, listOfInstructionsPrompts } = body;
 
+        // Force cloud environment in production
+        const deploymentEnv = process.env.DEPLOYMENT_ENV || 'local';
+        const isProduction = deploymentEnv === 'production';
+        const effectiveUseCloudEnv = isProduction ? true : (useCloudEnv || false);
+
         let results: any;
 
         switch(mode) {
@@ -26,7 +31,7 @@ export async function POST(request: NextRequest) {
                     );
                 }
                 results = await runBrowsingSession({
-                    useCloudEnv: useCloudEnv || false,
+                    useCloudEnv: effectiveUseCloudEnv,
                     websiteTarget,
                     instructionsPrompts,
                 });
@@ -41,7 +46,7 @@ export async function POST(request: NextRequest) {
                 }
                 results = await runMultipleSessions({
                     numSessions: numSessions || 1,
-                    useCloudEnv: useCloudEnv || false,
+                    useCloudEnv: effectiveUseCloudEnv,
                     websiteTarget,
                     instructionsPrompts,
                 });
@@ -55,7 +60,7 @@ export async function POST(request: NextRequest) {
                     );
                 }
                 results = await mapSessionsToPrompts({
-                    useCloudEnv: useCloudEnv || false,
+                    useCloudEnv: effectiveUseCloudEnv,
                     websiteTarget,
                     listOfInstructionsPrompts,
                 });

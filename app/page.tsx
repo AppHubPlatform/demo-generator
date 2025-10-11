@@ -7,6 +7,7 @@ type Mode = 'single' | 'multiple' | 'mapped';
 export default function Home() {
   const [mode, setMode] = useState<Mode>('single');
   const [useCloudEnv, setUseCloudEnv] = useState<boolean>(false);
+  const [isProduction, setIsProduction] = useState<boolean>(false);
   const [websiteTarget, setWebsiteTarget] = useState<string>('https://creditkarma.com');
   const [instructionsPrompts, setInstructionsPrompts] = useState<string>('Browse around the site and click on credit cards.\nReview credit cards in 3 different categories\nReview types of personal loans');
   const [numSessions, setNumSessions] = useState<number>(1);
@@ -110,6 +111,21 @@ export default function Home() {
   };
 
   useEffect(() => {
+    // Fetch environment configuration
+    const fetchConfig = async () => {
+      try {
+        const response = await fetch('/api/config');
+        const data = await response.json();
+        setIsProduction(data.isProduction);
+        if (data.isProduction) {
+          setUseCloudEnv(true); // Force cloud environment in production
+        }
+      } catch (err) {
+        console.error('Error fetching config:', err);
+      }
+    };
+
+    fetchConfig();
     fetchSessionCount();
     const interval = setInterval(fetchSessionCount, 2000);
     return () => clearInterval(interval);
@@ -160,16 +176,30 @@ export default function Home() {
           </select>
         </div>
 
-        <div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="checkbox"
-              checked={useCloudEnv}
-              onChange={(e) => setUseCloudEnv(e.target.checked)}
-            />
-            Use Cloud Environment (Browserbase)
-          </label>
-        </div>
+        {!isProduction && (
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="checkbox"
+                checked={useCloudEnv}
+                onChange={(e) => setUseCloudEnv(e.target.checked)}
+              />
+              Use Cloud Environment (Browserbase)
+            </label>
+          </div>
+        )}
+        {isProduction && (
+          <div style={{
+            padding: '10px',
+            backgroundColor: '#e3f2fd',
+            border: '1px solid #2196f3',
+            borderRadius: '5px',
+            fontSize: '14px',
+            color: '#1565c0'
+          }}>
+            <strong>Production Mode:</strong> Using cloud environment (Browserbase)
+          </div>
+        )}
 
         <div>
           <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
