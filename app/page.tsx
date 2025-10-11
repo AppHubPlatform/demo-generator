@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 
 type Mode = 'single' | 'multiple' | 'mapped';
 
@@ -13,6 +13,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeSessionCount, setActiveSessionCount] = useState<number>(0);
+  const [isKilling, setIsKilling] = useState<boolean>(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -63,9 +65,75 @@ export default function Home() {
     }
   };
 
+  const fetchSessionCount = async () => {
+    try {
+      const response = await fetch('/api/sessions');
+      const data = await response.json();
+      setActiveSessionCount(data.count || 0);
+    } catch (err) {
+      console.error('Error fetching session count:', err);
+    }
+  };
+
+  const handleKillAll = async () => {
+    if (!confirm(`Are you sure you want to kill all ${activeSessionCount} active session(s)?`)) {
+      return;
+    }
+
+    setIsKilling(true);
+    try {
+      const response = await fetch('/api/sessions', {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to kill sessions');
+      }
+
+      alert(data.message || 'Sessions killed successfully');
+      fetchSessionCount();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to kill sessions');
+    } finally {
+      setIsKilling(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSessionCount();
+    const interval = setInterval(fetchSessionCount, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-      <h1>Browser Automation GUI</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h1 style={{ margin: 0 }}>Browser Automation GUI</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <span style={{ fontSize: '14px', color: '#666' }}>
+            Active Sessions: <strong>{activeSessionCount}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={handleKillAll}
+            disabled={isKilling || activeSessionCount === 0}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              backgroundColor: isKilling || activeSessionCount === 0 ? '#ccc' : '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: isKilling || activeSessionCount === 0 ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isKilling ? 'Killing...' : 'Kill All Sessions'}
+          </button>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <div>
@@ -74,7 +142,7 @@ export default function Home() {
           </label>
           <select
             value={mode}
-            onChange={(e) => setMode(e.target.value)}
+            onChange={(e) => setMode(e.target.value as Mode)}
             style={{ width: '100%', padding: '8px', fontSize: '14px' }}
           >
             <option value="single">Single Session</option>

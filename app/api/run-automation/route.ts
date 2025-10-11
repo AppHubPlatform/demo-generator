@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runScript, runMultipleSessions, mapSessionsToPrompts } from '@/lib/automation';
+import { runBrowsingSession, runMultipleSessions, mapSessionsToPrompts } from '@/lib/automation';
 
 interface RequestBody {
     mode: 'single' | 'multiple' | 'mapped';
@@ -19,7 +19,13 @@ export async function POST(request: NextRequest) {
 
         switch(mode) {
             case 'single':
-                results = await runScript({
+                if (!instructionsPrompts) {
+                    return NextResponse.json(
+                        { error: 'instructionsPrompts is required for single mode' },
+                        { status: 400 }
+                    );
+                }
+                results = await runBrowsingSession({
                     useCloudEnv: useCloudEnv || false,
                     websiteTarget,
                     instructionsPrompts,
@@ -27,6 +33,12 @@ export async function POST(request: NextRequest) {
                 break;
 
             case 'multiple':
+                if (!instructionsPrompts) {
+                    return NextResponse.json(
+                        { error: 'instructionsPrompts is required for multiple mode' },
+                        { status: 400 }
+                    );
+                }
                 results = await runMultipleSessions({
                     numSessions: numSessions || 1,
                     useCloudEnv: useCloudEnv || false,
@@ -36,6 +48,12 @@ export async function POST(request: NextRequest) {
                 break;
 
             case 'mapped':
+                if (!listOfInstructionsPrompts) {
+                    return NextResponse.json(
+                        { error: 'listOfInstructionsPrompts is required for mapped mode' },
+                        { status: 400 }
+                    );
+                }
                 results = await mapSessionsToPrompts({
                     useCloudEnv: useCloudEnv || false,
                     websiteTarget,

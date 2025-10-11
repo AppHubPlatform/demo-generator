@@ -1,22 +1,25 @@
 import { Stagehand } from "@browserbasehq/stagehand";
 import fs from 'fs';
 import { faker } from '@faker-js/faker';
+import { sessionManager } from './sessionManager';
+import { randomUUID } from 'crypto';
 
 const logRocketScript = fs.readFileSync('./logrocket_loader.js', 'utf8');
 
-interface RunScriptParams {
+interface RunBrowsingSessionParams {
     useCloudEnv?: boolean;
     websiteTarget: string;
     instructionsPrompts: string[];
     timeoutSeconds?: number;
 }
 
-export async function runScript({
+export async function runBrowsingSession({
     useCloudEnv = false,
     websiteTarget,
     instructionsPrompts,
     timeoutSeconds = 600,
-}: RunScriptParams): Promise<any[]> {
+}: RunBrowsingSessionParams): Promise<any[]> {
+    const sessionId = randomUUID();
     let stagehand;
 
     if (useCloudEnv) {
@@ -31,25 +34,12 @@ export async function runScript({
                 projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
                 browserSettings: {
                     blockAds: false,
-                    proxies: [
-                        {
-                          "type": "browserbase",
-                          "geolocation": {
-                            "city": "NEW_YORK",
-                            "state": "NY",
-                            "country": "US"
-                          }
-                        }
-                    ],
                     viewport: {
                         width: 1280,
                         height: 800,
                     },
                     solveCaptchas: true,
-                    args: [
-                        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
-                    ]
-                },
+                } as any,
             timeout: timeoutSeconds,
             keepAlive: true,
             }
@@ -67,7 +57,12 @@ export async function runScript({
         });
     }
 
-    await stagehand.init();
+    const initResult = await stagehand.init();
+
+    // Extract the Browserbase session ID if using cloud environment
+    const browserbaseSessionId = useCloudEnv ? initResult.sessionId : undefined;
+
+    sessionManager.addSession(sessionId, stagehand, browserbaseSessionId);
 
     const page = stagehand.page;
 
@@ -97,7 +92,7 @@ export async function runScript({
     });
 
     const agent = stagehand.agent({
-        provider: "anthropic",
+        provider: "google",
         model: "gemini-2.5-computer-use-preview-10-2025",
 
         instructions: `You are an average human website user. You will be given instructions of some tasks to complete on a website.
@@ -116,14 +111,18 @@ export async function runScript({
         },
     });
 
-    const results = [];
-    for (const prompt of instructionsPrompts) {
-        const result = await agent.execute(prompt);
-        results.push(result);
-        console.log(result);
-    }
+    try {
+        const results = [];
+        for (const prompt of instructionsPrompts) {
+            const result = await agent.execute(prompt);
+            results.push(result);
+            console.log(result);
+        }
 
-    return results;
+        return results;
+    } finally {
+        sessionManager.removeSession(sessionId);
+    }
 }
 
 interface RunMultipleSessionsParams {
@@ -139,7 +138,7 @@ export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarg
         const timeoutSeconds = Math.floor(Math.random() * (600 - 120 + 1)) + 120;
         console.log(`Starting session ${i} with timeout of ${timeoutSeconds}s`);
 
-        promises.push(runScript({
+        promises.push(runBrowsingSession({
             useCloudEnv,
             websiteTarget,
             instructionsPrompts,
@@ -160,7 +159,7 @@ export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfIn
     for (let i = 0; i < listOfInstructionsPrompts.length; i++) {
         console.log(`Starting session ${i}`);
 
-        promises.push(runScript({
+        promises.push(runBrowsingSession({
             useCloudEnv,
             websiteTarget,
             instructionsPrompts: listOfInstructionsPrompts[i],
