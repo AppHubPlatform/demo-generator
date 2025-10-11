@@ -59,10 +59,12 @@ export async function runBrowsingSession({
 
     const initResult = await stagehand.init();
 
-    // Extract the Browserbase session ID if using cloud environment
+    // Extract the Browserbase session info if using cloud environment
     const browserbaseSessionId = useCloudEnv ? initResult.sessionId : undefined;
+    const debugUrl = useCloudEnv ? initResult.debugUrl : undefined;
+    const sessionUrl = useCloudEnv ? initResult.sessionUrl : undefined;
 
-    sessionManager.addSession(sessionId, stagehand, browserbaseSessionId);
+    sessionManager.addSession(sessionId, stagehand, browserbaseSessionId, debugUrl, sessionUrl);
 
     const page = stagehand.page;
 

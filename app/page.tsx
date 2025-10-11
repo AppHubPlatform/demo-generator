@@ -15,6 +15,13 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [activeSessionCount, setActiveSessionCount] = useState<number>(0);
   const [isKilling, setIsKilling] = useState<boolean>(false);
+  const [activeSessions, setActiveSessions] = useState<Array<{
+    id: string;
+    startTime: string;
+    debugUrl?: string;
+    sessionUrl?: string;
+    browserbaseSessionId?: string;
+  }>>([]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -70,6 +77,7 @@ export default function Home() {
       const response = await fetch('/api/sessions');
       const data = await response.json();
       setActiveSessionCount(data.count || 0);
+      setActiveSessions(data.sessions || []);
     } catch (err) {
       console.error('Error fetching session count:', err);
     }
@@ -108,6 +116,7 @@ export default function Home() {
   }, []);
 
   return (
+    <>
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Browser Automation GUI</h1>
@@ -261,5 +270,48 @@ export default function Home() {
         </div>
       )}
     </div>
+
+    {activeSessions.length > 0 && activeSessions.some(s => s.debugUrl) && (
+      <div style={{ marginTop: '30px', padding: '0 20px' }}>
+        <h2>Live Sessions</h2>
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '20px',
+          marginTop: '15px',
+        }}>
+          {activeSessions.filter(s => s.debugUrl).map((session) => (
+            <div
+              key={session.id}
+              style={{
+                border: '2px solid #ddd',
+                borderRadius: '8px',
+                padding: '10px',
+                backgroundColor: '#f9f9f9',
+                flex: '0 0 calc(50% - 10px)',
+                maxWidth: 'calc(40% - 10px)',
+              }}
+            >
+              <div style={{ marginBottom: '10px', fontSize: '14px' }}>
+                <strong>Session:</strong> {session.id.slice(0, 8)}...
+                <br />
+                <strong>Started:</strong> {new Date(session.startTime).toLocaleTimeString()}
+              </div>
+              <iframe
+                src={session.debugUrl}
+                style={{
+                  width: '100%',
+                  height: '400px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                }}
+                title={`Session ${session.id}`}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+    </>
   );
 }
