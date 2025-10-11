@@ -85,10 +85,6 @@ export default function Home() {
   };
 
   const handleKillAll = async () => {
-    if (!confirm(`Are you sure you want to kill all ${activeSessionCount} active session(s)?`)) {
-      return;
-    }
-
     setIsKilling(true);
     try {
       const response = await fetch('/api/sessions', {
@@ -101,7 +97,6 @@ export default function Home() {
         throw new Error(data.error || 'Failed to kill sessions');
       }
 
-      alert(data.message || 'Sessions killed successfully');
       fetchSessionCount();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to kill sessions');
@@ -250,19 +245,19 @@ export default function Home() {
 
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || isKilling}
           style={{
             padding: '12px',
             fontSize: '16px',
             fontWeight: 'bold',
-            backgroundColor: isLoading ? '#ccc' : '#0070f3',
+            backgroundColor: (isLoading || isKilling) ? '#ccc' : '#0070f3',
             color: 'white',
             border: 'none',
             borderRadius: '5px',
-            cursor: isLoading ? 'not-allowed' : 'pointer',
+            cursor: (isLoading || isKilling) ? 'not-allowed' : 'pointer',
           }}
         >
-          {isLoading ? 'Running...' : 'Run Automation'}
+          {isLoading ? 'Running...' : isKilling ? 'Killing Sessions...' : 'Run Automation'}
         </button>
       </form>
 

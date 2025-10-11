@@ -76,6 +76,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, results });
 
     } catch (error) {
+        // Filter out expected errors when session is killed
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isExpectedError = errorMessage.includes('Target page, context or browser has been closed') ||
+                               errorMessage.includes('proxy.newCDPSession');
+
+        if (isExpectedError) {
+            // Session was killed, return success response
+            return NextResponse.json({
+                success: false,
+                message: 'Session was terminated',
+                results: null
+            });
+        }
+
         console.error('Automation error:', error);
         return NextResponse.json(
             { error: error instanceof Error ? error.message : 'An error occurred' },

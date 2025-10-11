@@ -1,10 +1,8 @@
 import { Stagehand } from "@browserbasehq/stagehand";
-import fs from 'fs';
 import { faker } from '@faker-js/faker';
 import { sessionManager } from './sessionManager';
 import { randomUUID } from 'crypto';
-
-const logRocketScript = fs.readFileSync('./logrocket_loader.js', 'utf8');
+import { logRocketScript } from './logRocketScript';
 
 interface RunBrowsingSessionParams {
     useCloudEnv?: boolean;
@@ -122,6 +120,16 @@ export async function runBrowsingSession({
         }
 
         return results;
+    } catch (error) {
+        // Filter out expected errors when session is killed
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isExpectedError = errorMessage.includes('Target page, context or browser has been closed') ||
+                               errorMessage.includes('proxy.newCDPSession');
+
+        if (!isExpectedError) {
+            console.error('Automation error:', error);
+        }
+        throw error;
     } finally {
         sessionManager.removeSession(sessionId);
     }

@@ -57,7 +57,14 @@ class SessionManager {
             this.sessions.delete(id);
             return true;
         } catch (error) {
-            console.error(`Error killing session ${id}:`, error);
+            // Filter out expected errors when closing sessions
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const isExpectedError = errorMessage.includes('Target page, context or browser has been closed') ||
+                                   errorMessage.includes('proxy.newCDPSession');
+
+            if (!isExpectedError) {
+                console.error(`Error killing session ${id}:`, error);
+            }
             return false;
         }
     }
