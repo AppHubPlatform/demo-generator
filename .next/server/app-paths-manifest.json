@@ -1,1 +1,4 @@
-{}
+{
+  "/api/run-automation/route": "app/api/run-automation/route.js",
+  "/page": "app/page.js"
+}
