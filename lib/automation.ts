@@ -33,8 +33,8 @@ export async function runBrowsingSession({
             apiKey: process.env.BROWSERBASE_API_KEY,
             projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
             env: "BROWSERBASE",
-            logInferenceToFile: true,
-            verbose: 2,
+            logInferenceToFile: false,
+            verbose: 0,
 
             browserbaseSessionCreateParams: {
                 projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",

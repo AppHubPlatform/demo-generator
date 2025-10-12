@@ -1,19 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: [
-    '@browserbasehq/stagehand',
-    'pino',
-    'pino-pretty',
-    'thread-stream'
-  ],
-  experimental: {
-    serverComponentsExternalPackages: [
-      '@browserbasehq/stagehand',
-      'pino',
-      'pino-pretty',
-      'thread-stream'
-    ]
-  }
+  serverExternalPackages: ['@browserbasehq/stagehand']
 };
 
 export default nextConfig;
