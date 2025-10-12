@@ -76,14 +76,14 @@ export async function runBrowsingSession({
 
     await page.goto(websiteTarget,  { waitUntil: "domcontentloaded" });
 
-    // Only inject LogRocket if enabled
+    // Generate LogRocket script if enabled
+    let logRocketScript: string | null = null;
     if (enableLogRocket) {
-        // Generate LogRocket script with the specified server configuration
-        const logRocketScript = generateLogRocketScript(logRocketServer, logRocketAppId);
+        logRocketScript = generateLogRocketScript(logRocketServer, logRocketAppId);
         await page.evaluate(logRocketScript);
     }
 
-    if (Math.random() < 0.5) {
+    if (enableLogRocket && Math.random() < 0.5) {
         const fakeName = faker.person.fullName();
         const fakeID = faker.string.uuid();
 
@@ -100,9 +100,12 @@ export async function runBrowsingSession({
         })()`);
     }
 
-    page.on('load', async () => {
-        await page.evaluate(logRocketScript);
-    });
+    // Re-inject LogRocket script on page load if enabled
+    if (enableLogRocket && logRocketScript) {
+        page.on('load', async () => {
+            await page.evaluate(logRocketScript!);
+        });
+    }
 
     const agent = stagehand.agent({
         provider: "google",
