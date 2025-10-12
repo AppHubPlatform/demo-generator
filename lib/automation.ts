@@ -116,15 +116,20 @@ export async function runBrowsingSession({
 
     const page = stagehand.page;
 
-    // Set mobile user agent if needed
+    // Set mobile user agent using CDP if needed
     if (isMobile && userAgent) {
-        await page.setUserAgent(userAgent);
-
-        // Set viewport with mobile flags
-        await page.setViewportSize({
-            width: dimensions.width,
-            height: dimensions.height,
-        });
+        const context = page.context();
+        await context.addInitScript(`
+            Object.defineProperty(navigator, 'userAgent', {
+                get: () => '${userAgent}'
+            });
+            Object.defineProperty(navigator, 'platform', {
+                get: () => 'iPhone'
+            });
+            Object.defineProperty(navigator, 'maxTouchPoints', {
+                get: () => 5
+            });
+        `);
     }
 
     await page.goto(websiteTarget,  { waitUntil: "domcontentloaded" });
