@@ -3,6 +3,7 @@ import { faker } from '@faker-js/faker';
 import { sessionManager } from './sessionManager';
 import { randomUUID } from 'crypto';
 import { generateLogRocketScript } from './logRocketScript';
+import { devices } from 'playwright';
 
 type LogRocketServer = 'demo' | 'staging' | 'prod';
 type ScreenSize = 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
@@ -37,16 +38,16 @@ function isMobileScreenSize(screenSize: ScreenSize): boolean {
     return screenSize === 'iphone-regular' || screenSize === 'iphone-plus';
 }
 
-function getMobileUserAgent(screenSize: ScreenSize): string {
-    // iPhone 14 Pro user agent
+function getPlaywrightDevice(screenSize: ScreenSize) {
     if (screenSize === 'iphone-regular') {
-        return 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+        // iPhone 12 Pro has dimensions 390x844
+        return devices['iPhone 12 Pro'];
     }
-    // iPhone 14 Plus user agent
     if (screenSize === 'iphone-plus') {
-        return 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+        // iPhone 14 Plus has dimensions 430x932
+        return devices['iPhone 14 Plus'];
     }
-    return '';
+    return null;
 }
 
 export async function runBrowsingSession({
@@ -64,7 +65,7 @@ export async function runBrowsingSession({
 
     const dimensions = getScreenDimensions(screenSize);
     const isMobile = isMobileScreenSize(screenSize);
-    const userAgent = isMobile ? getMobileUserAgent(screenSize) : undefined;
+    const deviceSettings = isMobile ? getPlaywrightDevice(screenSize) : null;
 
     if (useCloudEnv) {
         const browserSettings: any = {
@@ -76,11 +77,9 @@ export async function runBrowsingSession({
             solveCaptchas: true,
         };
 
-        // Add fingerprint for mobile user agent
-        if (isMobile && userAgent) {
-            browserSettings.fingerprint = {
-                browserListQuery: userAgent,
-            };
+        // Set OS to mobile for mobile devices
+        if (isMobile) {
+            browserSettings.os = 'mobile';
         }
 
          stagehand = new Stagehand({
@@ -100,27 +99,24 @@ export async function runBrowsingSession({
             }
         });
     } else {
-        const contextOptions: any = {};
+        const launchOptions: any = {
+            headless: false,
+        };
 
-        if (isMobile && userAgent) {
-            contextOptions.userAgent = userAgent;
-            contextOptions.isMobile = true;
-            contextOptions.hasTouch = true;
-            contextOptions.deviceScaleFactor = 2;
+        // Don't set viewport in launch options if using device settings
+        if (!deviceSettings) {
+            launchOptions.viewport = {
+                width: dimensions.width,
+                height: dimensions.height,
+            };
         }
 
        stagehand = new Stagehand({
             env: 'LOCAL',
             disablePino: true,
             modelClientOptions: { apiKey: process.env.GOOGLE_API_KEY },
-            localBrowserLaunchOptions: {
-                headless: false,
-                viewport: {
-                    width: dimensions.width,
-                    height: dimensions.height,
-                },
-            },
-            browserContextOptions: contextOptions,
+            localBrowserLaunchOptions: launchOptions,
+            browserContextOptions: deviceSettings || undefined,
         });
     }
 
