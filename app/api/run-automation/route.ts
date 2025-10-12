@@ -8,7 +8,7 @@ interface RequestBody {
     enableLogRocket?: boolean;
     logRocketServer?: 'demo' | 'staging' | 'prod';
     logRocketAppId?: string;
-    screenSize?: 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
+    screenSize?: 'randomize' | 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
     instructionsPrompts?: string[];
     numSessions?: number;
     listOfInstructionsPrompts?: string[][];

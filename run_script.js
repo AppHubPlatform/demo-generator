@@ -117,6 +117,9 @@ async function runScript({
         you don't need to execute that goal immediately, just eventually get to it. You should peruse a given website in a meandering way. 
         You should move your mouse slowly and carefully around the pages, and scroll up and down the pages in a realistic way. 
 
+        If you are not sure about how to do something, do not ever google or attempt to search for information on other websites.
+        Just do your best to figure it out on the given website.
+
         DO NOT ASK FOLLOW UP QUESTIONS ABOUT THE GOAL. JUST TRY TO COMPLETE IT IN YOUR OWN WAY. 
         
         If there are any cookie banners or pop ups, always click "accept", or "I Understand" or whatever is needed to approve the banner.`,

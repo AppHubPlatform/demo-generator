@@ -11,8 +11,10 @@
     "legacy": "node run_script.js"
   },
   "dependencies": {
+    "@ai-sdk/google": "^2.0.20",
     "@browserbasehq/stagehand": "^2.0.0",
     "@faker-js/faker": "^10.0.0",
+    "ai": "^5.0.68",
     "dotenv": "^16.4.5",
     "next": "^15.0.0",
     "pino-pretty": "^13.1.2",

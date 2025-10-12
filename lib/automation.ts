@@ -6,7 +6,8 @@ import { generateLogRocketScript } from './logRocketScript';
 import { devices } from 'playwright';
 
 type LogRocketServer = 'demo' | 'staging' | 'prod';
-type ScreenSize = 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
+type ScreenSize = 'randomize' | 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
+type ConcreteScreenSize = 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
 
 interface RunBrowsingSessionParams {
     useCloudEnv?: boolean;
@@ -15,11 +16,16 @@ interface RunBrowsingSessionParams {
     enableLogRocket?: boolean;
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
-    screenSize?: ScreenSize;
+    screenSize?: ConcreteScreenSize;
     timeoutSeconds?: number;
 }
 
-function getScreenDimensions(screenSize: ScreenSize): { width: number; height: number } {
+function getRandomScreenSize(): ConcreteScreenSize {
+    const sizes: ConcreteScreenSize[] = ['desktop-large', 'desktop-medium', 'iphone-regular', 'iphone-plus'];
+    return sizes[Math.floor(Math.random() * sizes.length)];
+}
+
+function getScreenDimensions(screenSize: ConcreteScreenSize): { width: number; height: number } {
     switch (screenSize) {
         case 'desktop-large':
             return { width: 1920, height: 1080 };
@@ -34,11 +40,11 @@ function getScreenDimensions(screenSize: ScreenSize): { width: number; height: n
     }
 }
 
-function isMobileScreenSize(screenSize: ScreenSize): boolean {
+function isMobileScreenSize(screenSize: ConcreteScreenSize): boolean {
     return screenSize === 'iphone-regular' || screenSize === 'iphone-plus';
 }
 
-function getPlaywrightDevice(screenSize: ScreenSize) {
+function getPlaywrightDevice(screenSize: ConcreteScreenSize) {
     if (screenSize === 'iphone-regular') {
         // iPhone 12 Pro has dimensions 390x844
         return devices['iPhone 12 Pro'];
@@ -233,7 +239,13 @@ export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarg
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < numSessions; i++) {
         const timeoutSeconds = Math.floor(Math.random() * (600 - 120 + 1)) + 120;
-        console.log(`Starting session ${i} with timeout of ${timeoutSeconds}s`);
+
+        // If randomize, pick a random screen size for this session
+        const concreteScreenSize: ConcreteScreenSize = screenSize === 'randomize'
+            ? getRandomScreenSize()
+            : (screenSize || 'desktop-medium');
+
+        console.log(`Starting session ${i} with timeout of ${timeoutSeconds}s and screen size ${concreteScreenSize}`);
 
         promises.push(runBrowsingSession({
             useCloudEnv,
@@ -242,7 +254,7 @@ export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarg
             enableLogRocket,
             logRocketServer,
             logRocketAppId,
-            screenSize,
+            screenSize: concreteScreenSize,
             timeoutSeconds,
         }))
     }
@@ -262,7 +274,12 @@ interface MapSessionsToPromptsParams {
 export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfInstructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize}: MapSessionsToPromptsParams): Promise<any[]> {
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < listOfInstructionsPrompts.length; i++) {
-        console.log(`Starting session ${i}`);
+        // If randomize, pick a random screen size for this session
+        const concreteScreenSize: ConcreteScreenSize = screenSize === 'randomize'
+            ? getRandomScreenSize()
+            : (screenSize || 'desktop-medium');
+
+        console.log(`Starting session ${i} with screen size ${concreteScreenSize}`);
 
         promises.push(runBrowsingSession({
             useCloudEnv,
@@ -271,7 +288,7 @@ export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfIn
             enableLogRocket,
             logRocketServer,
             logRocketAppId,
-            screenSize,
+            screenSize: concreteScreenSize,
         }))
     }
     return await Promise.all(promises);
