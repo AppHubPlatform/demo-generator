@@ -114,22 +114,26 @@ export async function runBrowsingSession({
 
     sessionManager.addSession(sessionId, stagehand, browserbaseSessionId, debugUrl, sessionUrl);
 
-    const page = stagehand.page;
+    let page = stagehand.page;
 
-    // Set mobile user agent using CDP if needed
+    // For mobile, create a new context with proper mobile settings
     if (isMobile && userAgent) {
-        const context = page.context();
-        await context.addInitScript(`
-            Object.defineProperty(navigator, 'userAgent', {
-                get: () => '${userAgent}'
+        const browser = page.context().browser();
+        if (browser) {
+            const mobileContext = await browser.newContext({
+                userAgent: userAgent,
+                viewport: {
+                    width: dimensions.width,
+                    height: dimensions.height,
+                },
+                isMobile: true,
+                hasTouch: true,
+                deviceScaleFactor: 2,
             });
-            Object.defineProperty(navigator, 'platform', {
-                get: () => 'iPhone'
-            });
-            Object.defineProperty(navigator, 'maxTouchPoints', {
-                get: () => 5
-            });
-        `);
+            page = await mobileContext.newPage();
+            // Store reference to close old page/context later
+            await stagehand.page.close();
+        }
     }
 
     await page.goto(websiteTarget,  { waitUntil: "domcontentloaded" });
