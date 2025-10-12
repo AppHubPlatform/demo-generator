@@ -5,6 +5,8 @@ interface RequestBody {
     mode: 'single' | 'multiple' | 'mapped';
     useCloudEnv?: boolean;
     websiteTarget: string;
+    logRocketServer?: 'demo' | 'staging' | 'prod';
+    logRocketAppId?: string;
     instructionsPrompts?: string[];
     numSessions?: number;
     listOfInstructionsPrompts?: string[][];
@@ -13,7 +15,7 @@ interface RequestBody {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json() as RequestBody;
-        const { mode, useCloudEnv, websiteTarget, instructionsPrompts, numSessions, listOfInstructionsPrompts } = body;
+        const { mode, useCloudEnv, websiteTarget, logRocketServer, logRocketAppId, instructionsPrompts, numSessions, listOfInstructionsPrompts } = body;
 
         // Force cloud environment in production
         const deploymentEnv = process.env.DEPLOYMENT_ENV || 'local';
@@ -34,6 +36,8 @@ export async function POST(request: NextRequest) {
                     useCloudEnv: effectiveUseCloudEnv,
                     websiteTarget,
                     instructionsPrompts,
+                    logRocketServer: logRocketServer || 'prod',
+                    logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
                 });
                 break;
 
@@ -49,6 +53,8 @@ export async function POST(request: NextRequest) {
                     useCloudEnv: effectiveUseCloudEnv,
                     websiteTarget,
                     instructionsPrompts,
+                    logRocketServer: logRocketServer || 'prod',
+                    logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
                 });
                 break;
 
@@ -63,6 +69,8 @@ export async function POST(request: NextRequest) {
                     useCloudEnv: effectiveUseCloudEnv,
                     websiteTarget,
                     listOfInstructionsPrompts,
+                    logRocketServer: logRocketServer || 'prod',
+                    logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
                 });
                 break;
 

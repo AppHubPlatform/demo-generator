@@ -1,5 +1,42 @@
 // Inline LogRocket loader script to avoid file system issues in production
-export const logRocketScript = `
+
+type LogRocketServer = 'demo' | 'staging' | 'prod';
+
+interface LogRocketConfig {
+  serverURL?: string;
+  dashboardHost?: string;
+  appID?: string;
+}
+
+function getLogRocketConfig(server: LogRocketServer): LogRocketConfig {
+  switch (server) {
+    case 'staging':
+      return {
+        serverURL: 'https://staging-i.logrocket.io/i',
+        dashboardHost: 'https://staging.logrocket.io',
+        appID: 'public-shares/credit-karma'
+      };
+    case 'demo':
+      return {
+        serverURL: 'https://demo.logrocket.com/i',
+        dashboardHost: 'https://demo.logrocket.com',
+        appID: 'public-shares/credit-karma'
+      };
+    case 'prod':
+    default:
+      return {
+        serverURL: 'https://r.lgrckt-in.com/i',
+        dashboardHost: 'https://app.logrocket.com',
+        appID: 'public-shares/credit-karma'
+      };
+  }
+}
+
+export function generateLogRocketScript(server: LogRocketServer = 'prod', customAppId?: string): string {
+  const config = getLogRocketConfig(server);
+  const appID = customAppId || config.appID;
+
+  return `
 // This file handles LogRocket initialization in the page context
 (() => {
   console.info('[LogRocket] Activating via load-logrocket.js');
@@ -12,9 +49,9 @@ export const logRocketScript = `
   // Extract configuration from URL parameters
   const scriptSrc = urlParams.get('scriptSrc') || 'https://cdn.lgrckt-in.com/LogRocket.min.js';
   const asyncScriptSrc = urlParams.get('asyncScriptSrc') || 'https://cdn.lgrckt-in.com/logger.min.js';
-  const serverURL = urlParams.get('serverURL') || 'https://r.lgrckt-in.com/i';
-  const dashboardHost = urlParams.get('dashboardHost') || 'https://app.logrocket.com';
-  const appID = urlParams.get('appID') || 'public-shares/credit-karma';
+  const serverURL = urlParams.get('serverURL') || '${config.serverURL}';
+  const dashboardHost = urlParams.get('dashboardHost') || '${config.dashboardHost}';
+  const appID = urlParams.get('appID') || '${appID}';
   const shouldAutoIdentify = urlParams.get('autoIdentify') === 'false';
   const shouldAutoSanitizeInput = urlParams.get('autoSanitizeInput') === 'true';
   const shouldAutoSanitizeText = urlParams.get('autoSanitizeText') === 'true';
@@ -135,3 +172,7 @@ export const logRocketScript = `
   loadMainScript();
 })();
 `;
+}
+
+// Backwards compatible default export
+export const logRocketScript = generateLogRocketScript('prod');

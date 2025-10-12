@@ -3,11 +3,16 @@
 import { useState, FormEvent, useEffect } from 'react';
 
 type Mode = 'single' | 'multiple' | 'mapped';
+type UsageMode = 'manual' | 'autopilot';
+type LogRocketServer = 'demo' | 'staging' | 'prod';
 
 export default function Home() {
+  const [usageMode, setUsageMode] = useState<UsageMode>('autopilot');
   const [mode, setMode] = useState<Mode>('single');
   const [useCloudEnv, setUseCloudEnv] = useState<boolean>(false);
   const [isProduction, setIsProduction] = useState<boolean>(false);
+  const [logRocketServer, setLogRocketServer] = useState<LogRocketServer>('prod');
+  const [logRocketAppId, setLogRocketAppId] = useState<string>('public-shares/credit-karma');
   const [websiteTarget, setWebsiteTarget] = useState<string>('https://creditkarma.com');
   const [instructionsPrompts, setInstructionsPrompts] = useState<string>('Browse around the site and click on credit cards.\nReview credit cards in 3 different categories\nReview types of personal loans');
   const [numSessions, setNumSessions] = useState<number>(1);
@@ -35,6 +40,8 @@ export default function Home() {
         mode,
         useCloudEnv,
         websiteTarget,
+        logRocketServer,
+        logRocketAppId,
       };
 
       if (mode === 'single' || mode === 'multiple') {
@@ -131,29 +138,75 @@ export default function Home() {
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Browser Automation GUI</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <span style={{ fontSize: '14px', color: '#666' }}>
-            Active Sessions: <strong>{activeSessionCount}</strong>
-          </span>
-          <button
-            type="button"
-            onClick={handleKillAll}
-            disabled={isKilling || activeSessionCount === 0}
-            style={{
-              padding: '8px 16px',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              backgroundColor: isKilling || activeSessionCount === 0 ? '#ccc' : '#dc3545',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: isKilling || activeSessionCount === 0 ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {isKilling ? 'Killing...' : 'Kill All Sessions'}
-          </button>
-        </div>
       </div>
+
+      {/* Usage Mode Switcher */}
+      <div style={{
+        display: 'flex',
+        gap: '10px',
+        marginBottom: '30px',
+        borderBottom: '2px solid #e0e0e0',
+        paddingBottom: '10px'
+      }}>
+        <button
+          onClick={() => setUsageMode('autopilot')}
+          style={{
+            padding: '10px 20px',
+            fontSize: '16px',
+            fontWeight: usageMode === 'autopilot' ? 'bold' : 'normal',
+            backgroundColor: usageMode === 'autopilot' ? '#0070f3' : 'transparent',
+            color: usageMode === 'autopilot' ? 'white' : '#333',
+            border: usageMode === 'autopilot' ? 'none' : '1px solid #ccc',
+            borderRadius: '5px',
+            cursor: 'pointer',
+          }}
+        >
+          Autopilot Mode
+        </button>
+        <button
+          onClick={() => setUsageMode('manual')}
+          style={{
+            padding: '10px 20px',
+            fontSize: '16px',
+            fontWeight: usageMode === 'manual' ? 'bold' : 'normal',
+            backgroundColor: usageMode === 'manual' ? '#0070f3' : 'transparent',
+            color: usageMode === 'manual' ? 'white' : '#333',
+            border: usageMode === 'manual' ? 'none' : '1px solid #ccc',
+            borderRadius: '5px',
+            cursor: 'pointer',
+          }}
+        >
+          Manual Mode
+        </button>
+      </div>
+
+      {/* Manual Mode UI */}
+      {usageMode === 'manual' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <span style={{ fontSize: '14px', color: '#666' }}>
+                Active Sessions: <strong>{activeSessionCount}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleKillAll}
+                disabled={isKilling || activeSessionCount === 0}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  backgroundColor: isKilling || activeSessionCount === 0 ? '#ccc' : '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: isKilling || activeSessionCount === 0 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {isKilling ? 'Killing...' : 'Kill All Sessions'}
+              </button>
+            </div>
+          </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <div>
@@ -169,6 +222,34 @@ export default function Home() {
             <option value="multiple">Multiple Sessions</option>
             <option value="mapped">Mapped Sessions</option>
           </select>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            LogRocket Server
+          </label>
+          <select
+            value={logRocketServer}
+            onChange={(e) => setLogRocketServer(e.target.value as LogRocketServer)}
+            style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+          >
+            <option value="prod">Production</option>
+            <option value="staging">Staging</option>
+            <option value="demo">Demo</option>
+          </select>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            LogRocket App ID
+          </label>
+          <input
+            type="text"
+            value={logRocketAppId}
+            onChange={(e) => setLogRocketAppId(e.target.value)}
+            placeholder="e.g., public-shares/credit-karma"
+            style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+          />
         </div>
 
         {!isProduction && (
@@ -292,6 +373,32 @@ export default function Home() {
           }}>
             {JSON.stringify(results, null, 2)}
           </pre>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Autopilot Mode UI */}
+      {usageMode === 'autopilot' && (
+        <div style={{
+          padding: '40px',
+          textAlign: 'center',
+          backgroundColor: '#f5f5f5',
+          borderRadius: '10px',
+          marginTop: '20px'
+        }}>
+          <h2 style={{ marginBottom: '20px', color: '#333' }}>Autopilot Mode</h2>
+          <p style={{ fontSize: '16px', color: '#666', marginBottom: '30px' }}>
+            Guided automation workflow coming soon...
+          </p>
+          <div style={{
+            padding: '20px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            border: '2px dashed #ccc'
+          }}>
+            <p style={{ color: '#999', margin: 0 }}>Autopilot functionality will be implemented here</p>
+          </div>
         </div>
       )}
     </div>
