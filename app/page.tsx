@@ -141,7 +141,7 @@ export default function Home() {
     <>
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0 }}>Browser Automation GUI</h1>
+        <h1 style={{ margin: 0 }}>LogRocket Demo Session Generator</h1>
       </div>
 
       {/* Usage Mode Switcher */}
@@ -525,6 +525,20 @@ export default function Home() {
         </div>
       </div>
     )}
+
+    {/* Galileo Logo - Upper Left Corner */}
+    <img
+      src="/galileo.png"
+      alt="Galileo"
+      style={{
+        position: 'fixed',
+        top: '20px',
+        left: '20px',
+        width: '180px',
+        height: 'auto',
+        zIndex: 1000
+      }}
+    />
     </>
   );
 }
