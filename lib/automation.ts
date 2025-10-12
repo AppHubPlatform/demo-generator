@@ -33,6 +33,22 @@ function getScreenDimensions(screenSize: ScreenSize): { width: number; height: n
     }
 }
 
+function isMobileScreenSize(screenSize: ScreenSize): boolean {
+    return screenSize === 'iphone-regular' || screenSize === 'iphone-plus';
+}
+
+function getMobileUserAgent(screenSize: ScreenSize): string {
+    // iPhone 14 Pro user agent
+    if (screenSize === 'iphone-regular') {
+        return 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+    }
+    // iPhone 14 Plus user agent
+    if (screenSize === 'iphone-plus') {
+        return 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+    }
+    return '';
+}
+
 export async function runBrowsingSession({
     useCloudEnv = false,
     websiteTarget,
@@ -47,8 +63,28 @@ export async function runBrowsingSession({
     let stagehand;
 
     const dimensions = getScreenDimensions(screenSize);
+    const isMobile = isMobileScreenSize(screenSize);
+    const userAgent = isMobile ? getMobileUserAgent(screenSize) : undefined;
 
     if (useCloudEnv) {
+        const browserSettings: any = {
+            blockAds: false,
+            viewport: {
+                width: dimensions.width,
+                height: dimensions.height,
+            },
+            solveCaptchas: true,
+        };
+
+        // Add mobile-specific settings
+        if (isMobile && userAgent) {
+            browserSettings.context = {
+                userAgent: userAgent,
+                isMobile: true,
+                hasTouch: true,
+            };
+        }
+
          stagehand = new Stagehand({
             apiKey: process.env.BROWSERBASE_API_KEY,
             projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
@@ -60,30 +96,32 @@ export async function runBrowsingSession({
 
             browserbaseSessionCreateParams: {
                 projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
-                browserSettings: {
-                    blockAds: false,
-                    viewport: {
-                        width: dimensions.width,
-                        height: dimensions.height,
-                    },
-                    solveCaptchas: true,
-                } as any,
+                browserSettings: browserSettings,
             timeout: timeoutSeconds,
             keepAlive: true,
             }
         });
     } else {
+        const launchOptions: any = {
+            headless: false,
+            viewport: {
+                width: dimensions.width,
+                height: dimensions.height,
+            },
+        };
+
+        // Add mobile-specific settings
+        if (isMobile && userAgent) {
+            launchOptions.userAgent = userAgent;
+            launchOptions.isMobile = true;
+            launchOptions.hasTouch = true;
+        }
+
        stagehand = new Stagehand({
             env: 'LOCAL',
             disablePino: true,
             modelClientOptions: { apiKey: process.env.GOOGLE_API_KEY },
-            localBrowserLaunchOptions: {
-                headless: false,
-                viewport: {
-                    width: dimensions.width,
-                    height: dimensions.height,
-                },
-            }
+            localBrowserLaunchOptions: launchOptions,
         });
     }
 
