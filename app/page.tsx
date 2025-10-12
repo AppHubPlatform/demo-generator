@@ -548,8 +548,8 @@ export default function Home() {
       style={{
         position: 'fixed',
         top: '20px',
-        left: '20px',
-        width: '360px',
+        left: '-20px',
+        maxWidth: '14%',
         height: 'auto',
         zIndex: 1000
       }}
