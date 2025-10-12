@@ -67,24 +67,6 @@ export async function runBrowsingSession({
     const userAgent = isMobile ? getMobileUserAgent(screenSize) : undefined;
 
     if (useCloudEnv) {
-        const browserSettings: any = {
-            blockAds: false,
-            viewport: {
-                width: dimensions.width,
-                height: dimensions.height,
-            },
-            solveCaptchas: true,
-        };
-
-        // Add mobile-specific settings
-        if (isMobile && userAgent) {
-            browserSettings.context = {
-                userAgent: userAgent,
-                isMobile: true,
-                hasTouch: true,
-            };
-        }
-
          stagehand = new Stagehand({
             apiKey: process.env.BROWSERBASE_API_KEY,
             projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
@@ -96,32 +78,30 @@ export async function runBrowsingSession({
 
             browserbaseSessionCreateParams: {
                 projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
-                browserSettings: browserSettings,
+                browserSettings: {
+                    blockAds: false,
+                    viewport: {
+                        width: dimensions.width,
+                        height: dimensions.height,
+                    },
+                    solveCaptchas: true,
+                } as any,
             timeout: timeoutSeconds,
             keepAlive: true,
             }
         });
     } else {
-        const launchOptions: any = {
-            headless: false,
-            viewport: {
-                width: dimensions.width,
-                height: dimensions.height,
-            },
-        };
-
-        // Add mobile-specific settings
-        if (isMobile && userAgent) {
-            launchOptions.userAgent = userAgent;
-            launchOptions.isMobile = true;
-            launchOptions.hasTouch = true;
-        }
-
        stagehand = new Stagehand({
             env: 'LOCAL',
             disablePino: true,
             modelClientOptions: { apiKey: process.env.GOOGLE_API_KEY },
-            localBrowserLaunchOptions: launchOptions,
+            localBrowserLaunchOptions: {
+                headless: false,
+                viewport: {
+                    width: dimensions.width,
+                    height: dimensions.height,
+                },
+            }
         });
     }
 
@@ -135,6 +115,17 @@ export async function runBrowsingSession({
     sessionManager.addSession(sessionId, stagehand, browserbaseSessionId, debugUrl, sessionUrl);
 
     const page = stagehand.page;
+
+    // Set mobile user agent if needed
+    if (isMobile && userAgent) {
+        await page.setUserAgent(userAgent);
+
+        // Set viewport with mobile flags
+        await page.setViewportSize({
+            width: dimensions.width,
+            height: dimensions.height,
+        });
+    }
 
     await page.goto(websiteTarget,  { waitUntil: "domcontentloaded" });
 
