@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent, useEffect, useRef } from 'react';
 
 type Mode = 'single' | 'multiple' | 'mapped';
 type UsageMode = 'manual' | 'autopilot';
 type LogRocketServer = 'demo' | 'staging' | 'prod';
 
 export default function Home() {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [usageMode, setUsageMode] = useState<UsageMode>('autopilot');
   const [mode, setMode] = useState<Mode>('single');
   const [useCloudEnv, setUseCloudEnv] = useState<boolean>(true);
@@ -136,6 +137,17 @@ export default function Home() {
     const interval = setInterval(fetchSessionCount, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  // Control video playback based on isLoading
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isLoading) {
+        videoRef.current.play();
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [isLoading]);
 
   return (
     <>
@@ -526,15 +538,18 @@ export default function Home() {
       </div>
     )}
 
-    {/* Galileo Logo - Upper Left Corner */}
-    <img
-      src="/galileo.png"
-      alt="Galileo"
+    {/* Galileo Dancing Video - Upper Left Corner */}
+    <video
+      ref={videoRef}
+      src="/galileo_dancing.mp4"
+      loop
+      muted
+      playsInline
       style={{
         position: 'fixed',
         top: '20px',
         left: '20px',
-        width: '180px',
+        width: '360px',
         height: 'auto',
         zIndex: 1000
       }}
