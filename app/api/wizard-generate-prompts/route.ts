@@ -4,34 +4,32 @@ import { streamText } from 'ai';
 
 export async function POST(request: NextRequest) {
     try {
-        const { website } = await request.json();
+        const { website, research, numPrompts } = await request.json();
 
-        if (!website) {
-            return new Response('Website URL is required', { status: 400 });
+        if (!website || !research) {
+            return new Response('Website URL and research are required', { status: 400 });
         }
 
-        const prompt = `You are a UX researcher analyzing websites to understand user behavior patterns.
+        const count = numPrompts || 5;
 
-Your task:
-1. Research the website: ${website}
-2. Identify what the company does, what services/products they offer
-3. Think about realistic user scenarios and behaviors on this site
-4. Generate 5 realistic prompts that would simulate actual user behavior on this site
+        const prompt = `You are a UX researcher who creates realistic user behavior prompts for browser automation testing.
 
-Think through this step by step:
-- What is the main purpose of this website?
-- What are the key features/sections users would interact with?
-- What are common user journeys on this type of site?
-- What actions would real users take?
+Website: ${website}
 
-After your analysis, provide exactly 5 prompts in this format:
+Research Summary:
+${research}
+
+Based on this research, generate exactly ${count} realistic prompts that simulate actual user behavior on this site.
+
+Each prompt should be a natural language instruction for a browser automation agent. Make them diverse and realistic.
+
+Provide your prompts in this exact format:
 PROMPT_1: [first prompt]
 PROMPT_2: [second prompt]
 PROMPT_3: [third prompt]
-PROMPT_4: [fourth prompt]
-PROMPT_5: [fifth prompt]
+... and so on for all ${count} prompts.
 
-Each prompt should be a natural language instruction for a browser automation agent, describing realistic user behavior.`;
+No extra explanation needed - just the prompts in the format shown above.`;
 
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
@@ -49,8 +47,8 @@ Each prompt should be a natural language instruction for a browser automation ag
                     for await (const textPart of result.textStream) {
                         fullText += textPart;
 
-                        // Send research updates
-                        const data = JSON.stringify({ type: 'research', content: textPart });
+                        // Send generation updates
+                        const data = JSON.stringify({ type: 'generating', content: textPart });
                         controller.enqueue(encoder.encode(`data: ${data}\n\n`));
                     }
 
@@ -89,7 +87,7 @@ Each prompt should be a natural language instruction for a browser automation ag
             },
         });
     } catch (error) {
-        console.error('Autopilot research error:', error);
+        console.error('Wizard generate prompts error:', error);
         return new Response(
             JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
             { status: 500, headers: { 'Content-Type': 'application/json' } }

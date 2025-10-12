@@ -3,13 +3,13 @@
 import { useState, FormEvent, useEffect, useRef } from 'react';
 
 type Mode = 'single' | 'multiple' | 'mapped';
-type UsageMode = 'manual' | 'autopilot';
+type UsageMode = 'manual' | 'wizard';
 type LogRocketServer = 'demo' | 'staging' | 'prod';
 type ScreenSize = 'randomize' | 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
 
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [usageMode, setUsageMode] = useState<UsageMode>('autopilot');
+  const [usageMode, setUsageMode] = useState<UsageMode>('wizard');
   const [mode, setMode] = useState<Mode>('single');
   const [useCloudEnv, setUseCloudEnv] = useState<boolean>(true);
   const [isProduction, setIsProduction] = useState<boolean>(false);
@@ -34,11 +34,13 @@ export default function Home() {
     browserbaseSessionId?: string;
   }>>([]);
 
-  // Autopilot mode state
-  const [autopilotWebsite, setAutopilotWebsite] = useState<string>('https://creditkarma.com');
-  const [autopilotResearch, setAutopilotResearch] = useState<string>('');
-  const [autopilotPrompts, setAutopilotPrompts] = useState<string[]>([]);
+  // Wizard mode state
+  const [wizardWebsite, setWizardWebsite] = useState<string>('https://creditkarma.com');
+  const [wizardResearch, setWizardResearch] = useState<string>('');
+  const [wizardPrompts, setWizardPrompts] = useState<string[]>([]);
   const [isResearching, setIsResearching] = useState<boolean>(false);
+  const [numPromptsToGenerate, setNumPromptsToGenerate] = useState<number>(5);
+  const [isGeneratingPrompts, setIsGeneratingPrompts] = useState<boolean>(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -126,19 +128,19 @@ export default function Home() {
     }
   };
 
-  const handleAutopilotResearch = async () => {
+  const handleWizardResearch = async () => {
     setIsResearching(true);
-    setAutopilotResearch('');
-    setAutopilotPrompts([]);
+    setWizardResearch('');
+    setWizardPrompts([]);
     setError(null);
 
     try {
-      const response = await fetch('/api/autopilot-research', {
+      const response = await fetch('/api/wizard-research', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ website: autopilotWebsite }),
+        body: JSON.stringify({ website: wizardWebsite }),
       });
 
       const reader = response.body?.getReader();
@@ -162,9 +164,7 @@ export default function Home() {
                 const parsed = JSON.parse(data);
                 if (parsed.type === 'research') {
                   researchText += parsed.content;
-                  setAutopilotResearch(researchText);
-                } else if (parsed.type === 'prompts') {
-                  setAutopilotPrompts(parsed.prompts);
+                  setWizardResearch(researchText);
                 }
               } catch (e) {
                 // Skip invalid JSON
@@ -180,19 +180,72 @@ export default function Home() {
     }
   };
 
-  const handleRunAutopilot = async () => {
+  const handleGeneratePrompts = async () => {
+    setIsGeneratingPrompts(true);
+    setWizardPrompts([]);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/wizard-generate-prompts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          website: wizardWebsite,
+          research: wizardResearch,
+          numPrompts: numPromptsToGenerate,
+        }),
+      });
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.type === 'prompts') {
+                  setWizardPrompts(parsed.prompts);
+                }
+              } catch (e) {
+                // Skip invalid JSON
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate prompts');
+    } finally {
+      setIsGeneratingPrompts(false);
+    }
+  };
+
+  const handleRunWizard = async () => {
     setIsLoading(true);
     setResults(null);
     setError(null);
 
     try {
       // Run mapped sessions - one session per prompt
-      const listOfInstructionsPrompts = autopilotPrompts.map(prompt => [prompt]);
+      const listOfInstructionsPrompts = wizardPrompts.map(prompt => [prompt]);
 
       const payload = {
         mode: 'mapped' as Mode,
-        useCloudEnv: true, // Autopilot always uses Browserbase Cloud
-        websiteTarget: autopilotWebsite,
+        useCloudEnv: true, // Wizard always uses Browserbase Cloud
+        websiteTarget: wizardWebsite,
         listOfInstructionsPrompts,
         enableLogRocket,
         logRocketServer,
@@ -270,19 +323,19 @@ export default function Home() {
         paddingBottom: '10px'
       }}>
         <button
-          onClick={() => setUsageMode('autopilot')}
+          onClick={() => setUsageMode('wizard')}
           style={{
             padding: '10px 20px',
             fontSize: '16px',
-            fontWeight: usageMode === 'autopilot' ? 'bold' : 'normal',
-            backgroundColor: usageMode === 'autopilot' ? '#0070f3' : 'transparent',
-            color: usageMode === 'autopilot' ? 'white' : '#333',
-            border: usageMode === 'autopilot' ? 'none' : '1px solid #ccc',
+            fontWeight: usageMode === 'wizard' ? 'bold' : 'normal',
+            backgroundColor: usageMode === 'wizard' ? '#0070f3' : 'transparent',
+            color: usageMode === 'wizard' ? 'white' : '#333',
+            border: usageMode === 'wizard' ? 'none' : '1px solid #ccc',
             borderRadius: '5px',
             cursor: 'pointer',
           }}
         >
-          Autopilot Mode
+          Wizard Mode
         </button>
         <button
           onClick={() => setUsageMode('manual')}
@@ -593,149 +646,59 @@ export default function Home() {
         </>
       )}
 
-      {/* Autopilot Mode UI */}
-      {usageMode === 'autopilot' && (
+      {/* Wizard Mode UI */}
+      {usageMode === 'wizard' && (
         <div style={{
           padding: '40px',
           backgroundColor: '#f5f5f5',
           borderRadius: '10px',
           marginTop: '20px'
         }}>
-          <h2 style={{ marginBottom: '10px', color: '#333' }}>Autopilot Mode</h2>
+          <h2 style={{ marginBottom: '10px', color: '#333' }}>Wizard Mode</h2>
           <p style={{ fontSize: '14px', color: '#666', marginBottom: '30px' }}>
             AI will research your website and generate realistic user behavior prompts
           </p>
 
-          <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-            {/* Left Column - Main Settings */}
-            <div style={{ flex: 1 }}>
-              {/* Website Input */}
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', textAlign: 'left' }}>
-                  Website URL
-                </label>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input
-                    type="text"
-                    value={autopilotWebsite}
-                    onChange={(e) => setAutopilotWebsite(e.target.value)}
-                    placeholder="https://example.com"
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      fontSize: '14px',
-                      border: '1px solid #ccc',
-                      borderRadius: '5px',
-                    }}
-                  />
-                  <button
-                    onClick={handleAutopilotResearch}
-                    disabled={isResearching || !autopilotWebsite}
-                    style={{
-                      padding: '10px 20px',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      backgroundColor: isResearching ? '#ccc' : '#0070f3',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '5px',
-                      cursor: isResearching ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {isResearching ? 'Researching...' : 'Research'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Screen Size */}
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', textAlign: 'left' }}>
-                  Screen Size
-                </label>
-                <select
-                  value={screenSize}
-                  onChange={(e) => setScreenSize(e.target.value as ScreenSize)}
-                  style={{ width: '100%', padding: '8px', fontSize: '14px' }}
-                >
-                  <option value="randomize">Randomize (Different per session)</option>
-                  <option value="desktop-large">Desktop Large (1920×1080)</option>
-                  <option value="desktop-medium">Desktop Medium (1280×800)</option>
-                  <option value="iphone-regular">iPhone Regular (390×844)</option>
-                  <option value="iphone-plus">iPhone Plus (430×932)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Right Column - LogRocket Settings */}
-            <div style={{
-              width: '280px',
-              padding: '15px',
-              backgroundColor: '#f3e8ff',
-              borderRadius: '8px',
-              border: '1px solid #c084fc'
-            }}>
-              <h4 style={{ marginTop: 0, marginBottom: '15px', color: '#7c3aed' }}>LogRocket Settings</h4>
-
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={enableLogRocket}
-                    onChange={(e) => setEnableLogRocket(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <span style={{ fontWeight: 'bold' }}>Record in LogRocket</span>
-                </label>
-              </div>
-
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: enableLogRocket ? 'inherit' : '#999' }}>
-                  Server
-                </label>
-                <select
-                  value={logRocketServer}
-                  onChange={(e) => setLogRocketServer(e.target.value as LogRocketServer)}
-                  disabled={!enableLogRocket}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    fontSize: '14px',
-                    backgroundColor: enableLogRocket ? 'white' : '#f0f0f0',
-                    color: enableLogRocket ? 'inherit' : '#999',
-                    cursor: enableLogRocket ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  <option value="prod">Production</option>
-                  <option value="staging">Staging</option>
-                  <option value="demo">Demo</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: enableLogRocket ? 'inherit' : '#999' }}>
-                  App ID
-                </label>
-                <input
-                  type="text"
-                  value={logRocketAppId}
-                  onChange={(e) => setLogRocketAppId(e.target.value)}
-                  disabled={!enableLogRocket}
-                  placeholder="e.g., public-shares/credit-karma"
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    fontSize: '14px',
-                    backgroundColor: enableLogRocket ? 'white' : '#f0f0f0',
-                    color: enableLogRocket ? 'inherit' : '#999',
-                    cursor: enableLogRocket ? 'text' : 'not-allowed'
-                  }}
-                />
-              </div>
+          {/* Step 1: Website Input */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '16px' }}>
+              Website URL
+            </label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <input
+                type="text"
+                value={wizardWebsite}
+                onChange={(e) => setWizardWebsite(e.target.value)}
+                placeholder="https://example.com"
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  fontSize: '16px',
+                  border: '2px solid #ccc',
+                  borderRadius: '5px',
+                }}
+              />
+              <button
+                onClick={handleWizardResearch}
+                disabled={isResearching || !wizardWebsite}
+                style={{
+                  padding: '12px 30px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  backgroundColor: isResearching ? '#ccc' : '#0070f3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: isResearching ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {isResearching ? 'Researching...' : 'Research Website'}
+              </button>
             </div>
           </div>
 
           {/* Research Output */}
-          {autopilotResearch && (
+          {wizardResearch && (
             <div style={{
               marginBottom: '20px',
               padding: '15px',
@@ -744,68 +707,215 @@ export default function Home() {
               border: '1px solid #ddd',
               textAlign: 'left'
             }}>
-              <h3 style={{ marginTop: 0, marginBottom: '10px', color: '#0070f3' }}>AI Research</h3>
+              <h3 style={{ marginTop: 0, marginBottom: '10px', color: '#0070f3' }}>Research Summary</h3>
               <div style={{
                 whiteSpace: 'pre-wrap',
-                fontFamily: 'monospace',
-                fontSize: '13px',
+                fontSize: '14px',
                 lineHeight: '1.6',
-                maxHeight: '300px',
-                overflow: 'auto',
                 color: '#333'
               }}>
-                {autopilotResearch}
+                {wizardResearch}
               </div>
             </div>
           )}
 
-          {/* Generated Prompts */}
-          {autopilotPrompts.length > 0 && (
+          {/* Step 2: Generate Prompts (shown after research completes) */}
+          {wizardResearch && !isResearching && wizardPrompts.length === 0 && (
             <div style={{
-              padding: '15px',
+              marginBottom: '20px',
+              padding: '20px',
               backgroundColor: 'white',
               borderRadius: '8px',
-              border: '1px solid #ddd',
-              textAlign: 'left'
+              border: '2px solid #0070f3',
             }}>
-              <h3 style={{ marginTop: 0, marginBottom: '10px', color: '#0070f3' }}>Generated Prompts</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {autopilotPrompts.map((prompt, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      padding: '10px',
-                      backgroundColor: '#f9f9f9',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '5px',
-                      fontSize: '13px',
-                      lineHeight: '1.5'
-                    }}
-                  >
-                    <strong>Prompt {index + 1}:</strong> {prompt}
-                  </div>
-                ))}
+              <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#0070f3' }}>Generate User Behavior Prompts</h3>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <label style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                  Number of prompts:
+                </label>
+                <select
+                  value={numPromptsToGenerate}
+                  onChange={(e) => setNumPromptsToGenerate(parseInt(e.target.value))}
+                  style={{
+                    padding: '10px',
+                    fontSize: '14px',
+                    border: '1px solid #ccc',
+                    borderRadius: '5px',
+                    minWidth: '100px'
+                  }}
+                >
+                  <option value={3}>3 prompts</option>
+                  <option value={5}>5 prompts</option>
+                  <option value={10}>10 prompts</option>
+                  <option value={15}>15 prompts</option>
+                  <option value={20}>20 prompts</option>
+                </select>
+                <button
+                  onClick={handleGeneratePrompts}
+                  disabled={isGeneratingPrompts}
+                  style={{
+                    padding: '10px 24px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    backgroundColor: isGeneratingPrompts ? '#ccc' : '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: isGeneratingPrompts ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {isGeneratingPrompts ? 'Generating...' : 'Generate Prompts'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Generated Prompts & Settings */}
+          {wizardPrompts.length > 0 && (
+            <>
+              {/* Generated Prompts */}
+              <div style={{
+                marginBottom: '20px',
+                padding: '15px',
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                textAlign: 'left'
+              }}>
+                <h3 style={{ marginTop: 0, marginBottom: '10px', color: '#0070f3' }}>Generated Prompts</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {wizardPrompts.map((prompt, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        padding: '10px',
+                        backgroundColor: '#f9f9f9',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '5px',
+                        fontSize: '13px',
+                        lineHeight: '1.5'
+                      }}
+                    >
+                      <strong>Prompt {index + 1}:</strong> {prompt}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <button
-                onClick={handleRunAutopilot}
-                disabled={isLoading}
-                style={{
-                  marginTop: '15px',
-                  padding: '12px 24px',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  backgroundColor: isLoading ? '#ccc' : '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  width: '100%'
-                }}
-              >
-                {isLoading ? 'Running Automation...' : 'Run Automation with These Prompts'}
-              </button>
-            </div>
+              {/* Settings & Run */}
+              <div style={{ display: 'flex', gap: '20px' }}>
+                {/* Left Column - Screen Size */}
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    padding: '15px',
+                    backgroundColor: 'white',
+                    borderRadius: '8px',
+                    border: '1px solid #ddd'
+                  }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                      Screen Size
+                    </label>
+                    <select
+                      value={screenSize}
+                      onChange={(e) => setScreenSize(e.target.value as ScreenSize)}
+                      style={{ width: '100%', padding: '8px', fontSize: '14px', marginBottom: '15px' }}
+                    >
+                      <option value="randomize">Randomize (Different per session)</option>
+                      <option value="desktop-large">Desktop Large (1920×1080)</option>
+                      <option value="desktop-medium">Desktop Medium (1280×800)</option>
+                      <option value="iphone-regular">iPhone Regular (390×844)</option>
+                      <option value="iphone-plus">iPhone Plus (430×932)</option>
+                    </select>
+
+                    <button
+                      onClick={handleRunWizard}
+                      disabled={isLoading}
+                      style={{
+                        padding: '12px 24px',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        backgroundColor: isLoading ? '#ccc' : '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: isLoading ? 'not-allowed' : 'pointer',
+                        width: '100%'
+                      }}
+                    >
+                      {isLoading ? 'Running Automation...' : 'Run Automation'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Column - LogRocket Settings */}
+                <div style={{ width: '300px' }}>
+                  <div style={{
+                    padding: '15px',
+                    backgroundColor: '#f3e8ff',
+                    borderRadius: '8px',
+                    border: '1px solid #c084fc'
+                  }}>
+                    <h4 style={{ marginTop: 0, marginBottom: '15px', color: '#7c3aed' }}>LogRocket Settings</h4>
+
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={enableLogRocket}
+                          onChange={(e) => setEnableLogRocket(e.target.checked)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span style={{ fontWeight: 'bold' }}>Record in LogRocket</span>
+                      </label>
+                    </div>
+
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: enableLogRocket ? 'inherit' : '#999' }}>
+                        Server
+                      </label>
+                      <select
+                        value={logRocketServer}
+                        onChange={(e) => setLogRocketServer(e.target.value as LogRocketServer)}
+                        disabled={!enableLogRocket}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          fontSize: '14px',
+                          backgroundColor: enableLogRocket ? 'white' : '#f0f0f0',
+                          color: enableLogRocket ? 'inherit' : '#999',
+                          cursor: enableLogRocket ? 'pointer' : 'not-allowed'
+                        }}
+                      >
+                        <option value="prod">Production</option>
+                        <option value="staging">Staging</option>
+                        <option value="demo">Demo</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: enableLogRocket ? 'inherit' : '#999' }}>
+                        App ID
+                      </label>
+                      <input
+                        type="text"
+                        value={logRocketAppId}
+                        onChange={(e) => setLogRocketAppId(e.target.value)}
+                        disabled={!enableLogRocket}
+                        placeholder="e.g., public-shares/credit-karma"
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          fontSize: '14px',
+                          backgroundColor: enableLogRocket ? 'white' : '#f0f0f0',
+                          color: enableLogRocket ? 'inherit' : '#999',
+                          cursor: enableLogRocket ? 'text' : 'not-allowed'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
