@@ -19,6 +19,8 @@ const nextConfig = {
   },
   env: {
     PINO_DISABLE_PRETTY: 'true',
+    LOG_LEVEL: 'silent',
+    PINO_LOG_LEVEL: 'silent',
   }
 };
 
