@@ -9,12 +9,14 @@ type LogRocketServer = 'demo' | 'staging' | 'prod';
 export default function Home() {
   const [usageMode, setUsageMode] = useState<UsageMode>('autopilot');
   const [mode, setMode] = useState<Mode>('single');
-  const [useCloudEnv, setUseCloudEnv] = useState<boolean>(false);
+  const [useCloudEnv, setUseCloudEnv] = useState<boolean>(true);
   const [isProduction, setIsProduction] = useState<boolean>(false);
+  const [enableLogRocket, setEnableLogRocket] = useState<boolean>(true);
   const [logRocketServer, setLogRocketServer] = useState<LogRocketServer>('prod');
   const [logRocketAppId, setLogRocketAppId] = useState<string>('public-shares/credit-karma');
   const [websiteTarget, setWebsiteTarget] = useState<string>('https://creditkarma.com');
   const [instructionsPrompts, setInstructionsPrompts] = useState<string>('Browse around the site and click on credit cards.\nReview credit cards in 3 different categories\nReview types of personal loans');
+  const [mappedPrompts, setMappedPrompts] = useState<string[]>(['', '', '', '', '']);
   const [numSessions, setNumSessions] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [results, setResults] = useState<any>(null);
@@ -40,6 +42,7 @@ export default function Home() {
         mode,
         useCloudEnv,
         websiteTarget,
+        enableLogRocket,
         logRocketServer,
         logRocketAppId,
       };
@@ -53,9 +56,10 @@ export default function Home() {
       }
 
       if (mode === 'mapped') {
-        payload.listOfInstructionsPrompts = instructionsPrompts
-          .split('\n\n')
-          .map((group: string) => group.split('\n').filter((p: string) => p.trim()));
+        // Filter out blank prompts and split each prompt by newlines
+        payload.listOfInstructionsPrompts = mappedPrompts
+          .filter((prompt: string) => prompt.trim())
+          .map((prompt: string) => prompt.split('\n').filter((p: string) => p.trim()));
       }
 
       const response = await fetch('/api/run-automation', {
@@ -183,163 +187,240 @@ export default function Home() {
       {/* Manual Mode UI */}
       {usageMode === 'manual' && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <span style={{ fontSize: '14px', color: '#666' }}>
-                Active Sessions: <strong>{activeSessionCount}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={handleKillAll}
-                disabled={isKilling || activeSessionCount === 0}
-                style={{
-                  padding: '8px 16px',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  backgroundColor: isKilling || activeSessionCount === 0 ? '#ccc' : '#dc3545',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: isKilling || activeSessionCount === 0 ? 'not-allowed' : 'pointer',
-                }}
+      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '20px' }}>
+        {/* Main Settings Column */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          {!isProduction && (
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                Browser Environment
+              </label>
+              <select
+                value={useCloudEnv ? 'cloud' : 'local'}
+                onChange={(e) => setUseCloudEnv(e.target.value === 'cloud')}
+                style={{ width: '100%', padding: '8px', fontSize: '14px' }}
               >
-                {isKilling ? 'Killing...' : 'Kill All Sessions'}
-              </button>
+                <option value="cloud">Browserbase Cloud</option>
+                <option value="local">Local Browser</option>
+              </select>
             </div>
-          </div>
+          )}
+          {isProduction && (
+            <div style={{
+              padding: '10px',
+              backgroundColor: '#e3f2fd',
+              border: '1px solid #2196f3',
+              borderRadius: '5px',
+              fontSize: '14px',
+              color: '#1565c0'
+            }}>
+              <strong>Production Mode:</strong> Using cloud environment (Browserbase)
+            </div>
+          )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            Mode
-          </label>
-          <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value as Mode)}
-            style={{ width: '100%', padding: '8px', fontSize: '14px' }}
-          >
-            <option value="single">Single Session</option>
-            <option value="multiple">Multiple Sessions</option>
-            <option value="mapped">Mapped Sessions</option>
-          </select>
-        </div>
-
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            LogRocket Server
-          </label>
-          <select
-            value={logRocketServer}
-            onChange={(e) => setLogRocketServer(e.target.value as LogRocketServer)}
-            style={{ width: '100%', padding: '8px', fontSize: '14px' }}
-          >
-            <option value="prod">Production</option>
-            <option value="staging">Staging</option>
-            <option value="demo">Demo</option>
-          </select>
-        </div>
-
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            LogRocket App ID
-          </label>
-          <input
-            type="text"
-            value={logRocketAppId}
-            onChange={(e) => setLogRocketAppId(e.target.value)}
-            placeholder="e.g., public-shares/credit-karma"
-            style={{ width: '100%', padding: '8px', fontSize: '14px' }}
-          />
-        </div>
-
-        {!isProduction && (
-          <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input
-                type="checkbox"
-                checked={useCloudEnv}
-                onChange={(e) => setUseCloudEnv(e.target.checked)}
-              />
-              Use Cloud Environment (Browserbase)
-            </label>
-          </div>
-        )}
-        {isProduction && (
-          <div style={{
-            padding: '10px',
-            backgroundColor: '#e3f2fd',
-            border: '1px solid #2196f3',
-            borderRadius: '5px',
-            fontSize: '14px',
-            color: '#1565c0'
-          }}>
-            <strong>Production Mode:</strong> Using cloud environment (Browserbase)
-          </div>
-        )}
-
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            Website Target
-          </label>
-          <input
-            type="text"
-            value={websiteTarget}
-            onChange={(e) => setWebsiteTarget(e.target.value)}
-            placeholder="https://example.com"
-            style={{ width: '100%', padding: '8px', fontSize: '14px' }}
-            required
-          />
-        </div>
-
-        {mode === 'multiple' && (
           <div>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Number of Sessions
+              Mode
+            </label>
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value as Mode)}
+              style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+            >
+              <option value="single">Single Session</option>
+              <option value="multiple">Multiple Sessions</option>
+              <option value="mapped">Mapped Sessions</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Website Target
             </label>
             <input
-              type="number"
-              value={numSessions}
-              onChange={(e) => setNumSessions(parseInt(e.target.value) || 1)}
-              min="1"
+              type="text"
+              value={websiteTarget}
+              onChange={(e) => setWebsiteTarget(e.target.value)}
+              placeholder="https://example.com"
               style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+              required
             />
           </div>
-        )}
 
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            Instructions/Prompts
-            {mode === 'mapped'
-              ? ' (separate session groups with blank line)'
-              : ' (one per line)'}
-          </label>
-          <textarea
-            value={instructionsPrompts}
-            onChange={(e) => setInstructionsPrompts(e.target.value)}
-            placeholder={mode === 'mapped'
-              ? "Session 1 prompt 1\nSession 1 prompt 2\n\nSession 2 prompt 1\nSession 2 prompt 2"
-              : "Prompt 1\nPrompt 2\nPrompt 3"}
-            style={{ width: '100%', padding: '8px', fontSize: '14px', minHeight: '150px' }}
-            required
-          />
+          {mode === 'multiple' && (
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                Number of Sessions
+              </label>
+              <input
+                type="number"
+                value={numSessions}
+                onChange={(e) => setNumSessions(parseInt(e.target.value) || 1)}
+                min="1"
+                style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+              />
+            </div>
+          )}
+
+          {mode === 'mapped' ? (
+            <div>
+              <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>
+                Session Prompts (one prompt per session)
+              </label>
+              {mappedPrompts.map((prompt, index) => (
+                <div key={index} style={{ marginBottom: '10px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#666' }}>
+                    Session {index + 1}
+                  </label>
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => {
+                      const newPrompts = [...mappedPrompts];
+                      newPrompts[index] = e.target.value;
+                      setMappedPrompts(newPrompts);
+                    }}
+                    placeholder={`Enter instructions for session ${index + 1} (leave blank to skip)`}
+                    style={{ width: '100%', padding: '8px', fontSize: '14px', minHeight: '80px' }}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                Instructions/Prompts (one per line)
+              </label>
+              <textarea
+                value={instructionsPrompts}
+                onChange={(e) => setInstructionsPrompts(e.target.value)}
+                placeholder="Prompt 1\nPrompt 2\nPrompt 3"
+                style={{ width: '100%', padding: '8px', fontSize: '14px', minHeight: '150px' }}
+                required
+              />
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isLoading || isKilling}
+            style={{
+              padding: '12px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              backgroundColor: (isLoading || isKilling) ? '#ccc' : '#0070f3',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: (isLoading || isKilling) ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isLoading ? 'Running...' : isKilling ? 'Killing Sessions...' : 'Run'}
+          </button>
+
+          {/* Active Sessions Section */}
+          <div style={{
+            marginTop: '20px',
+            padding: '15px',
+            backgroundColor: '#f5f5f5',
+            borderRadius: '8px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span style={{ fontSize: '14px', color: '#666' }}>
+              Active Sessions: <strong>{activeSessionCount}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={handleKillAll}
+              disabled={isKilling || activeSessionCount === 0}
+              style={{
+                padding: '8px 16px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                backgroundColor: isKilling || activeSessionCount === 0 ? '#ccc' : '#dc3545',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: isKilling || activeSessionCount === 0 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isKilling ? 'Killing...' : 'Kill All Sessions'}
+            </button>
+          </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={isLoading || isKilling}
-          style={{
-            padding: '12px',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            backgroundColor: (isLoading || isKilling) ? '#ccc' : '#0070f3',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: (isLoading || isKilling) ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {isLoading ? 'Running...' : isKilling ? 'Killing Sessions...' : 'Run Automation'}
-        </button>
+        {/* LogRocket Settings Sidebar */}
+        <div style={{
+          width: '300px',
+          marginLeft: '20px',
+          padding: '20px',
+          backgroundColor: '#f3e5f5',
+          borderRadius: '8px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '15px'
+        }}>
+          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', color: '#6a1b9a' }}>
+            LogRocket Settings
+          </h3>
+
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={enableLogRocket}
+                onChange={(e) => setEnableLogRocket(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              <span style={{ fontWeight: 'bold' }}>Record in LogRocket</span>
+            </label>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: enableLogRocket ? 'inherit' : '#999' }}>
+              Server
+            </label>
+            <select
+              value={logRocketServer}
+              onChange={(e) => setLogRocketServer(e.target.value as LogRocketServer)}
+              disabled={!enableLogRocket}
+              style={{
+                width: '100%',
+                padding: '8px',
+                fontSize: '14px',
+                backgroundColor: enableLogRocket ? 'white' : '#f0f0f0',
+                color: enableLogRocket ? 'inherit' : '#999',
+                cursor: enableLogRocket ? 'pointer' : 'not-allowed'
+              }}
+            >
+              <option value="prod">Production</option>
+              <option value="staging">Staging</option>
+              <option value="demo">Demo</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: enableLogRocket ? 'inherit' : '#999' }}>
+              App ID
+            </label>
+            <input
+              type="text"
+              value={logRocketAppId}
+              onChange={(e) => setLogRocketAppId(e.target.value)}
+              disabled={!enableLogRocket}
+              placeholder="e.g., public-shares/credit-karma"
+              style={{
+                width: '100%',
+                padding: '8px',
+                fontSize: '14px',
+                backgroundColor: enableLogRocket ? 'white' : '#f0f0f0',
+                color: enableLogRocket ? 'inherit' : '#999',
+                cursor: enableLogRocket ? 'text' : 'not-allowed'
+              }}
+            />
+          </div>
+        </div>
       </form>
 
       {error && (

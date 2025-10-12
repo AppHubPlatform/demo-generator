@@ -10,6 +10,7 @@ interface RunBrowsingSessionParams {
     useCloudEnv?: boolean;
     websiteTarget: string;
     instructionsPrompts: string[];
+    enableLogRocket?: boolean;
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
     timeoutSeconds?: number;
@@ -19,6 +20,7 @@ export async function runBrowsingSession({
     useCloudEnv = false,
     websiteTarget,
     instructionsPrompts,
+    enableLogRocket = true,
     logRocketServer = 'prod',
     logRocketAppId = 'public-shares/credit-karma',
     timeoutSeconds = 600,
@@ -74,9 +76,12 @@ export async function runBrowsingSession({
 
     await page.goto(websiteTarget,  { waitUntil: "domcontentloaded" });
 
-    // Generate LogRocket script with the specified server configuration
-    const logRocketScript = generateLogRocketScript(logRocketServer, logRocketAppId);
-    await page.evaluate(logRocketScript);
+    // Only inject LogRocket if enabled
+    if (enableLogRocket) {
+        // Generate LogRocket script with the specified server configuration
+        const logRocketScript = generateLogRocketScript(logRocketServer, logRocketAppId);
+        await page.evaluate(logRocketScript);
+    }
 
     if (Math.random() < 0.5) {
         const fakeName = faker.person.fullName();
@@ -148,11 +153,12 @@ interface RunMultipleSessionsParams {
     useCloudEnv?: boolean;
     websiteTarget: string;
     instructionsPrompts: string[];
+    enableLogRocket?: boolean;
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
 }
 
-export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompts, logRocketServer, logRocketAppId}: RunMultipleSessionsParams): Promise<any[]> {
+export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId}: RunMultipleSessionsParams): Promise<any[]> {
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < numSessions; i++) {
         const timeoutSeconds = Math.floor(Math.random() * (600 - 120 + 1)) + 120;
@@ -162,6 +168,7 @@ export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarg
             useCloudEnv,
             websiteTarget,
             instructionsPrompts,
+            enableLogRocket,
             logRocketServer,
             logRocketAppId,
             timeoutSeconds,
@@ -174,11 +181,12 @@ interface MapSessionsToPromptsParams {
     useCloudEnv?: boolean;
     websiteTarget: string;
     listOfInstructionsPrompts: string[][];
+    enableLogRocket?: boolean;
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
 }
 
-export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfInstructionsPrompts, logRocketServer, logRocketAppId}: MapSessionsToPromptsParams): Promise<any[]> {
+export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfInstructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId}: MapSessionsToPromptsParams): Promise<any[]> {
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < listOfInstructionsPrompts.length; i++) {
         console.log(`Starting session ${i}`);
@@ -187,6 +195,7 @@ export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfIn
             useCloudEnv,
             websiteTarget,
             instructionsPrompts: listOfInstructionsPrompts[i],
+            enableLogRocket,
             logRocketServer,
             logRocketAppId,
         }))

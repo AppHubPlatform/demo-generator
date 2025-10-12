@@ -5,6 +5,7 @@ interface RequestBody {
     mode: 'single' | 'multiple' | 'mapped';
     useCloudEnv?: boolean;
     websiteTarget: string;
+    enableLogRocket?: boolean;
     logRocketServer?: 'demo' | 'staging' | 'prod';
     logRocketAppId?: string;
     instructionsPrompts?: string[];
@@ -15,7 +16,7 @@ interface RequestBody {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json() as RequestBody;
-        const { mode, useCloudEnv, websiteTarget, logRocketServer, logRocketAppId, instructionsPrompts, numSessions, listOfInstructionsPrompts } = body;
+        const { mode, useCloudEnv, websiteTarget, enableLogRocket, logRocketServer, logRocketAppId, instructionsPrompts, numSessions, listOfInstructionsPrompts } = body;
 
         // Force cloud environment in production
         const deploymentEnv = process.env.DEPLOYMENT_ENV || 'local';
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
                     useCloudEnv: effectiveUseCloudEnv,
                     websiteTarget,
                     instructionsPrompts,
+                    enableLogRocket: enableLogRocket !== false,
                     logRocketServer: logRocketServer || 'prod',
                     logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
                 });
@@ -53,6 +55,7 @@ export async function POST(request: NextRequest) {
                     useCloudEnv: effectiveUseCloudEnv,
                     websiteTarget,
                     instructionsPrompts,
+                    enableLogRocket: enableLogRocket !== false,
                     logRocketServer: logRocketServer || 'prod',
                     logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
                 });
@@ -69,6 +72,7 @@ export async function POST(request: NextRequest) {
                     useCloudEnv: effectiveUseCloudEnv,
                     websiteTarget,
                     listOfInstructionsPrompts,
+                    enableLogRocket: enableLogRocket !== false,
                     logRocketServer: logRocketServer || 'prod',
                     logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
                 });

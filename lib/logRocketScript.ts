@@ -3,9 +3,8 @@
 type LogRocketServer = 'demo' | 'staging' | 'prod';
 
 interface LogRocketConfig {
-  serverURL?: string;
-  dashboardHost?: string;
-  appID?: string;
+  serverURL: string;
+  dashboardHost: string;
 }
 
 function getLogRocketConfig(server: LogRocketServer): LogRocketConfig {
@@ -13,28 +12,24 @@ function getLogRocketConfig(server: LogRocketServer): LogRocketConfig {
     case 'staging':
       return {
         serverURL: 'https://staging-i.logrocket.io/i',
-        dashboardHost: 'https://staging.logrocket.io',
-        appID: 'public-shares/credit-karma'
+        dashboardHost: 'https://staging.logrocket.com'
       };
     case 'demo':
       return {
         serverURL: 'https://demo.logrocket.com/i',
-        dashboardHost: 'https://demo.logrocket.com',
-        appID: 'public-shares/credit-karma'
+        dashboardHost: 'https://demo.logrocket.com'
       };
     case 'prod':
     default:
       return {
         serverURL: 'https://r.lgrckt-in.com/i',
-        dashboardHost: 'https://app.logrocket.com',
-        appID: 'public-shares/credit-karma'
+        dashboardHost: 'https://app.logrocket.com'
       };
   }
 }
 
-export function generateLogRocketScript(server: LogRocketServer = 'prod', customAppId?: string): string {
+export function generateLogRocketScript(server: LogRocketServer = 'prod', appID: string = 'public-shares/credit-karma'): string {
   const config = getLogRocketConfig(server);
-  const appID = customAppId || config.appID;
 
   return `
 // This file handles LogRocket initialization in the page context
