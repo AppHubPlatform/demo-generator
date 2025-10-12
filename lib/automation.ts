@@ -77,10 +77,10 @@ export async function runBrowsingSession({
             solveCaptchas: true,
         };
 
-        // Set OS to mobile for mobile devices
-        if (isMobile) {
-            browserSettings.os = 'mobile';
-        }
+        // Set OS to mobile for mobile devices (requires Advanced Stealth plan)
+        // if (isMobile) {
+        //     browserSettings.os = 'mobile';
+        // }
 
          stagehand = new Stagehand({
             apiKey: process.env.BROWSERBASE_API_KEY,
