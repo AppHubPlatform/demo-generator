@@ -33,6 +33,7 @@ export async function runBrowsingSession({
             apiKey: process.env.BROWSERBASE_API_KEY,
             projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
             env: "BROWSERBASE",
+            disablePino: true,
             logInferenceToFile: false,
             verbose: 0,
 
@@ -53,6 +54,7 @@ export async function runBrowsingSession({
     } else {
        stagehand = new Stagehand({
             env: 'LOCAL',
+            disablePino: true,
             localBrowserLaunchOptions: {
                 headless: false,
                 viewport: {
