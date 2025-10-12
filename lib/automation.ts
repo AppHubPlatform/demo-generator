@@ -99,24 +99,17 @@ export async function runBrowsingSession({
             }
         });
     } else {
-        const launchOptions: any = {
-            headless: false,
-        };
-
-        // Don't set viewport in launch options if using device settings
-        if (!deviceSettings) {
-            launchOptions.viewport = {
-                width: dimensions.width,
-                height: dimensions.height,
-            };
-        }
-
        stagehand = new Stagehand({
             env: 'LOCAL',
             disablePino: true,
             modelClientOptions: { apiKey: process.env.GOOGLE_API_KEY },
-            localBrowserLaunchOptions: launchOptions,
-            browserContextOptions: deviceSettings || undefined,
+            localBrowserLaunchOptions: {
+                headless: false,
+                viewport: {
+                    width: dimensions.width,
+                    height: dimensions.height,
+                },
+            }
         });
     }
 
@@ -130,6 +123,23 @@ export async function runBrowsingSession({
     sessionManager.addSession(sessionId, stagehand, browserbaseSessionId, debugUrl, sessionUrl);
 
     const page = stagehand.page;
+
+    // Apply mobile device settings if needed
+    if (isMobile && deviceSettings) {
+        // Set user agent and mobile properties
+        const context = page.context();
+
+        // Apply device settings by creating a new page with device emulation
+        // This doesn't work well with Stagehand, so we'll use a simpler approach
+        await page.emulateMedia({ colorScheme: 'light' });
+
+        // Set extra HTTP headers to include mobile user agent
+        if (deviceSettings.userAgent) {
+            await page.setExtraHTTPHeaders({
+                'User-Agent': deviceSettings.userAgent
+            });
+        }
+    }
 
     await page.goto(websiteTarget,  { waitUntil: "domcontentloaded" });
 
