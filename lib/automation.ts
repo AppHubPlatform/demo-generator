@@ -67,6 +67,22 @@ export async function runBrowsingSession({
     const userAgent = isMobile ? getMobileUserAgent(screenSize) : undefined;
 
     if (useCloudEnv) {
+        const browserSettings: any = {
+            blockAds: false,
+            viewport: {
+                width: dimensions.width,
+                height: dimensions.height,
+            },
+            solveCaptchas: true,
+        };
+
+        // Add fingerprint for mobile user agent
+        if (isMobile && userAgent) {
+            browserSettings.fingerprint = {
+                browserListQuery: userAgent,
+            };
+        }
+
          stagehand = new Stagehand({
             apiKey: process.env.BROWSERBASE_API_KEY,
             projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
@@ -78,19 +94,21 @@ export async function runBrowsingSession({
 
             browserbaseSessionCreateParams: {
                 projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
-                browserSettings: {
-                    blockAds: false,
-                    viewport: {
-                        width: dimensions.width,
-                        height: dimensions.height,
-                    },
-                    solveCaptchas: true,
-                } as any,
+                browserSettings: browserSettings,
             timeout: timeoutSeconds,
             keepAlive: true,
             }
         });
     } else {
+        const contextOptions: any = {};
+
+        if (isMobile && userAgent) {
+            contextOptions.userAgent = userAgent;
+            contextOptions.isMobile = true;
+            contextOptions.hasTouch = true;
+            contextOptions.deviceScaleFactor = 2;
+        }
+
        stagehand = new Stagehand({
             env: 'LOCAL',
             disablePino: true,
@@ -101,7 +119,8 @@ export async function runBrowsingSession({
                     width: dimensions.width,
                     height: dimensions.height,
                 },
-            }
+            },
+            browserContextOptions: contextOptions,
         });
     }
 
@@ -114,27 +133,7 @@ export async function runBrowsingSession({
 
     sessionManager.addSession(sessionId, stagehand, browserbaseSessionId, debugUrl, sessionUrl);
 
-    let page = stagehand.page;
-
-    // For mobile, create a new context with proper mobile settings
-    if (isMobile && userAgent) {
-        const browser = page.context().browser();
-        if (browser) {
-            const mobileContext = await browser.newContext({
-                userAgent: userAgent,
-                viewport: {
-                    width: dimensions.width,
-                    height: dimensions.height,
-                },
-                isMobile: true,
-                hasTouch: true,
-                deviceScaleFactor: 2,
-            });
-            page = await mobileContext.newPage();
-            // Store reference to close old page/context later
-            await stagehand.page.close();
-        }
-    }
+    const page = stagehand.page;
 
     await page.goto(websiteTarget,  { waitUntil: "domcontentloaded" });
 
