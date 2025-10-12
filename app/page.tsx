@@ -5,6 +5,7 @@ import { useState, FormEvent, useEffect, useRef } from 'react';
 type Mode = 'single' | 'multiple' | 'mapped';
 type UsageMode = 'manual' | 'autopilot';
 type LogRocketServer = 'demo' | 'staging' | 'prod';
+type ScreenSize = 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
 
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -15,6 +16,7 @@ export default function Home() {
   const [enableLogRocket, setEnableLogRocket] = useState<boolean>(true);
   const [logRocketServer, setLogRocketServer] = useState<LogRocketServer>('prod');
   const [logRocketAppId, setLogRocketAppId] = useState<string>('public-shares/credit-karma');
+  const [screenSize, setScreenSize] = useState<ScreenSize>('desktop-medium');
   const [websiteTarget, setWebsiteTarget] = useState<string>('https://creditkarma.com');
   const [instructionsPrompts, setInstructionsPrompts] = useState<string>('Browse around the site and click on credit cards.\nReview credit cards in 3 different categories\nReview types of personal loans');
   const [mappedPrompts, setMappedPrompts] = useState<string[]>(['', '', '', '', '']);
@@ -46,6 +48,7 @@ export default function Home() {
         enableLogRocket,
         logRocketServer,
         logRocketAppId,
+        screenSize,
       };
 
       if (mode === 'single' || mode === 'multiple') {
@@ -229,6 +232,22 @@ export default function Home() {
               <strong>Production Mode:</strong> Using cloud environment (Browserbase)
             </div>
           )}
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Screen Size
+            </label>
+            <select
+              value={screenSize}
+              onChange={(e) => setScreenSize(e.target.value as ScreenSize)}
+              style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+            >
+              <option value="desktop-large">Desktop Large (1920×1080)</option>
+              <option value="desktop-medium">Desktop Medium (1280×800)</option>
+              <option value="iphone-regular">iPhone Regular (390×844)</option>
+              <option value="iphone-plus">iPhone Plus (430×932)</option>
+            </select>
+          </div>
 
           <div>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>

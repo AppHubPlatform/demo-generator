@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { generateLogRocketScript } from './logRocketScript';
 
 type LogRocketServer = 'demo' | 'staging' | 'prod';
+type ScreenSize = 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
 
 interface RunBrowsingSessionParams {
     useCloudEnv?: boolean;
@@ -13,7 +14,23 @@ interface RunBrowsingSessionParams {
     enableLogRocket?: boolean;
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
+    screenSize?: ScreenSize;
     timeoutSeconds?: number;
+}
+
+function getScreenDimensions(screenSize: ScreenSize): { width: number; height: number } {
+    switch (screenSize) {
+        case 'desktop-large':
+            return { width: 1920, height: 1080 };
+        case 'desktop-medium':
+            return { width: 1280, height: 800 };
+        case 'iphone-regular':
+            return { width: 390, height: 844 };
+        case 'iphone-plus':
+            return { width: 430, height: 932 };
+        default:
+            return { width: 1280, height: 800 };
+    }
 }
 
 export async function runBrowsingSession({
@@ -23,10 +40,13 @@ export async function runBrowsingSession({
     enableLogRocket = true,
     logRocketServer = 'prod',
     logRocketAppId = 'public-shares/credit-karma',
+    screenSize = 'desktop-medium',
     timeoutSeconds = 600,
 }: RunBrowsingSessionParams): Promise<any[]> {
     const sessionId = randomUUID();
     let stagehand;
+
+    const dimensions = getScreenDimensions(screenSize);
 
     if (useCloudEnv) {
          stagehand = new Stagehand({
@@ -43,8 +63,8 @@ export async function runBrowsingSession({
                 browserSettings: {
                     blockAds: false,
                     viewport: {
-                        width: 1280,
-                        height: 800,
+                        width: dimensions.width,
+                        height: dimensions.height,
                     },
                     solveCaptchas: true,
                 } as any,
@@ -60,8 +80,8 @@ export async function runBrowsingSession({
             localBrowserLaunchOptions: {
                 headless: false,
                 viewport: {
-                    width: 1280,
-                    height: 800,
+                    width: dimensions.width,
+                    height: dimensions.height,
                 },
             }
         });
@@ -163,9 +183,10 @@ interface RunMultipleSessionsParams {
     enableLogRocket?: boolean;
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
+    screenSize?: ScreenSize;
 }
 
-export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId}: RunMultipleSessionsParams): Promise<any[]> {
+export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize}: RunMultipleSessionsParams): Promise<any[]> {
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < numSessions; i++) {
         const timeoutSeconds = Math.floor(Math.random() * (600 - 120 + 1)) + 120;
@@ -178,6 +199,7 @@ export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarg
             enableLogRocket,
             logRocketServer,
             logRocketAppId,
+            screenSize,
             timeoutSeconds,
         }))
     }
@@ -191,9 +213,10 @@ interface MapSessionsToPromptsParams {
     enableLogRocket?: boolean;
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
+    screenSize?: ScreenSize;
 }
 
-export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfInstructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId}: MapSessionsToPromptsParams): Promise<any[]> {
+export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfInstructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize}: MapSessionsToPromptsParams): Promise<any[]> {
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < listOfInstructionsPrompts.length; i++) {
         console.log(`Starting session ${i}`);
@@ -205,6 +228,7 @@ export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfIn
             enableLogRocket,
             logRocketServer,
             logRocketAppId,
+            screenSize,
         }))
     }
     return await Promise.all(promises);
