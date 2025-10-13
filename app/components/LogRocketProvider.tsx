@@ -9,7 +9,6 @@ export default function LogRocketProvider({ children }: { children: React.ReactN
     if (typeof window !== 'undefined') {
       LogRocket.init('apphub/logrocket-demomaker', {
         serverURL: 'https://staging-i.logrocket.io/i',
-        dashboardHost: 'https://staging.logrocket.com',
       });
 
       console.log('[LogRocket] Initialized for app monitoring');
