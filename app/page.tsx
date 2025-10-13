@@ -632,7 +632,8 @@ export default function Home() {
                 fontSize: '14px',
                 backgroundColor: enableLogRocket ? 'white' : '#f0f0f0',
                 color: enableLogRocket ? 'inherit' : '#999',
-                cursor: enableLogRocket ? 'text' : 'not-allowed'
+                cursor: enableLogRocket ? 'text' : 'not-allowed',
+                boxSizing: 'border-box'
               }}
             />
           </div>
@@ -961,7 +962,7 @@ export default function Home() {
                         width: '100%'
                       }}
                     >
-                      {isLoading ? 'Running Automation...' : 'Run Automation'}
+                      {isLoading ? 'Running Sessions...' : 'Run Sessions'}
                     </button>
                   </div>
                 </div>
@@ -1027,7 +1028,8 @@ export default function Home() {
                           fontSize: '14px',
                           backgroundColor: enableLogRocket ? 'white' : '#f0f0f0',
                           color: enableLogRocket ? 'inherit' : '#999',
-                          cursor: enableLogRocket ? 'text' : 'not-allowed'
+                          cursor: enableLogRocket ? 'text' : 'not-allowed',
+                          boxSizing: 'border-box'
                         }}
                       />
                     </div>

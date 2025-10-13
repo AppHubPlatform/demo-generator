@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
-import { google } from '@ai-sdk/google';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { streamText } from 'ai';
+
+const google = createGoogleGenerativeAI({
+    apiKey: process.env.GOOGLE_API_KEY || '',
+});
 
 async function fetchWebsiteContent(url: string): Promise<string> {
     try {
