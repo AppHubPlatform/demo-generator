@@ -108,9 +108,7 @@ Be brief and focused. No extra explanation needed.`;
             async start(controller) {
                 try {
                     const result = await streamText({
-                        model: google('gemini-2.0-flash-exp', {
-                            apiKey: process.env.GOOGLE_API_KEY,
-                        }),
+                        model: google('gemini-2.0-flash-exp'),
                         prompt: prompt,
                     });
 

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runBrowsingSession, runMultipleSessions, mapSessionsToPrompts } from '@/lib/automation';
 
+type ConcreteScreenSize = 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
+type ScreenSize = 'randomize' | ConcreteScreenSize;
+
 interface RequestBody {
     mode: 'single' | 'multiple' | 'mapped';
     useCloudEnv?: boolean;
@@ -8,10 +11,22 @@ interface RequestBody {
     enableLogRocket?: boolean;
     logRocketServer?: 'demo' | 'staging' | 'prod';
     logRocketAppId?: string;
-    screenSize?: 'randomize' | 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
+    screenSize?: ScreenSize;
     instructionsPrompts?: string[];
     numSessions?: number;
     listOfInstructionsPrompts?: string[][];
+}
+
+function getRandomScreenSize(): ConcreteScreenSize {
+    const sizes: ConcreteScreenSize[] = ['desktop-large', 'desktop-medium', 'iphone-regular', 'iphone-plus'];
+    return sizes[Math.floor(Math.random() * sizes.length)];
+}
+
+function resolveScreenSize(screenSize?: ScreenSize): ConcreteScreenSize {
+    if (!screenSize || screenSize === 'randomize') {
+        return screenSize === 'randomize' ? getRandomScreenSize() : 'desktop-medium';
+    }
+    return screenSize;
 }
 
 export async function POST(request: NextRequest) {
@@ -41,7 +56,7 @@ export async function POST(request: NextRequest) {
                     enableLogRocket: enableLogRocket !== false,
                     logRocketServer: logRocketServer || 'prod',
                     logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
-                    screenSize: screenSize || 'desktop-medium',
+                    screenSize: resolveScreenSize(screenSize),
                 });
                 break;
 

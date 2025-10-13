@@ -36,9 +36,7 @@ No extra explanation needed - just the prompts in the format shown above.`;
             async start(controller) {
                 try {
                     const result = await streamText({
-                        model: google('gemini-2.0-flash-exp', {
-                            apiKey: process.env.GOOGLE_API_KEY,
-                        }),
+                        model: google('gemini-2.0-flash-exp'),
                         prompt: prompt,
                     });
 
