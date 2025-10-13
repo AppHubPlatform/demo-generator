@@ -32,6 +32,8 @@ export default function Home() {
     debugUrl?: string;
     sessionUrl?: string;
     browserbaseSessionId?: string;
+    promptLabel?: string;
+    promptText?: string;
   }>>([]);
 
   // Wizard mode state
@@ -41,6 +43,8 @@ export default function Home() {
   const [isResearching, setIsResearching] = useState<boolean>(false);
   const [numPromptsToGenerate, setNumPromptsToGenerate] = useState<number>(5);
   const [isGeneratingPrompts, setIsGeneratingPrompts] = useState<boolean>(false);
+  const [editingPromptIndex, setEditingPromptIndex] = useState<number | null>(null);
+  const [editingPromptText, setEditingPromptText] = useState<string>('');
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -143,6 +147,12 @@ export default function Home() {
         body: JSON.stringify({ website: wizardWebsite }),
       });
 
+      // Check if the response is an error
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to research website');
+      }
+
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let researchText = '';
@@ -175,6 +185,7 @@ export default function Home() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to research website');
+      setWizardResearch('');
     } finally {
       setIsResearching(false);
     }
@@ -231,6 +242,24 @@ export default function Home() {
     } finally {
       setIsGeneratingPrompts(false);
     }
+  };
+
+  const handleEditPrompt = (index: number) => {
+    setEditingPromptIndex(index);
+    setEditingPromptText(wizardPrompts[index]);
+  };
+
+  const handleSavePrompt = (index: number) => {
+    const newPrompts = [...wizardPrompts];
+    newPrompts[index] = editingPromptText;
+    setWizardPrompts(newPrompts);
+    setEditingPromptIndex(null);
+    setEditingPromptText('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPromptIndex(null);
+    setEditingPromptText('');
   };
 
   const handleRunWizard = async () => {
@@ -659,6 +688,20 @@ export default function Home() {
             AI will research your website and generate realistic user behavior prompts
           </p>
 
+          {/* Error Display */}
+          {error && (
+            <div style={{
+              marginBottom: '20px',
+              padding: '15px',
+              backgroundColor: '#fee',
+              border: '2px solid #fcc',
+              borderRadius: '8px',
+              color: '#c00',
+            }}>
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+
           {/* Step 1: Website Input */}
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '16px' }}>
@@ -796,7 +839,83 @@ export default function Home() {
                         lineHeight: '1.5'
                       }}
                     >
-                      <strong>Prompt {index + 1}:</strong> {prompt}
+                      {editingPromptIndex === index ? (
+                        // Edit mode
+                        <div>
+                          <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>Prompt {index + 1}:</div>
+                          <textarea
+                            value={editingPromptText}
+                            onChange={(e) => setEditingPromptText(e.target.value)}
+                            style={{
+                              width: '100%',
+                              minHeight: '80px',
+                              padding: '8px',
+                              fontSize: '13px',
+                              border: '1px solid #ccc',
+                              borderRadius: '4px',
+                              fontFamily: 'inherit',
+                              marginBottom: '8px'
+                            }}
+                          />
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              onClick={() => handleSavePrompt(index)}
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                backgroundColor: '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                backgroundColor: '#6b7280',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        // View mode
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                          <div style={{ flex: 1 }}>
+                            <strong>Prompt {index + 1}:</strong> {prompt}
+                          </div>
+                          <button
+                            onClick={() => handleEditPrompt(index)}
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '12px',
+                              backgroundColor: '#f3f4f6',
+                              color: '#374151',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              flexShrink: 0
+                            }}
+                            title="Edit prompt"
+                          >
+                            ✏️ Edit
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -959,6 +1078,20 @@ export default function Home() {
                 maxWidth: 'calc(40% - 10px)',
               }}
             >
+              {session.promptLabel && (
+                <div
+                  style={{
+                    marginBottom: '10px',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    textDecoration: 'underline',
+                    cursor: 'help'
+                  }}
+                  title={session.promptText || session.promptLabel}
+                >
+                  {session.promptLabel}
+                </div>
+              )}
               <div style={{ marginBottom: '10px', fontSize: '14px' }}>
                 <strong>Session:</strong> {session.id.slice(0, 8)}...
                 <br />

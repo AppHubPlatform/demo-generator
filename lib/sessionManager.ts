@@ -8,12 +8,14 @@ interface ActiveSession {
     browserbaseSessionId?: string;
     debugUrl?: string;
     sessionUrl?: string;
+    promptLabel?: string;
+    promptText?: string;
 }
 
 class SessionManager {
     private sessions: Map<string, ActiveSession> = new Map();
 
-    addSession(id: string, stagehand: Stagehand, browserbaseSessionId?: string, debugUrl?: string, sessionUrl?: string): void {
+    addSession(id: string, stagehand: Stagehand, browserbaseSessionId?: string, debugUrl?: string, sessionUrl?: string, promptLabel?: string, promptText?: string): void {
         this.sessions.set(id, {
             id,
             stagehand,
@@ -21,6 +23,8 @@ class SessionManager {
             browserbaseSessionId,
             debugUrl,
             sessionUrl,
+            promptLabel,
+            promptText,
         });
     }
 
@@ -83,13 +87,15 @@ class SessionManager {
         return killedCount;
     }
 
-    getActiveSessions(): Array<{ id: string; startTime: Date; debugUrl?: string; sessionUrl?: string; browserbaseSessionId?: string }> {
-        return Array.from(this.sessions.values()).map(({ id, startTime, debugUrl, sessionUrl, browserbaseSessionId }) => ({
+    getActiveSessions(): Array<{ id: string; startTime: Date; debugUrl?: string; sessionUrl?: string; browserbaseSessionId?: string; promptLabel?: string; promptText?: string }> {
+        return Array.from(this.sessions.values()).map(({ id, startTime, debugUrl, sessionUrl, browserbaseSessionId, promptLabel, promptText }) => ({
             id,
             startTime,
             debugUrl,
             sessionUrl,
             browserbaseSessionId,
+            promptLabel,
+            promptText,
         }));
     }
 

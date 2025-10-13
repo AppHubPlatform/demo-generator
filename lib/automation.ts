@@ -18,6 +18,8 @@ interface RunBrowsingSessionParams {
     logRocketAppId?: string;
     screenSize?: ConcreteScreenSize;
     timeoutSeconds?: number;
+    promptLabel?: string;
+    promptText?: string;
 }
 
 function getRandomScreenSize(): ConcreteScreenSize {
@@ -65,6 +67,8 @@ export async function runBrowsingSession({
     logRocketAppId = 'public-shares/credit-karma',
     screenSize = 'desktop-medium',
     timeoutSeconds = 600,
+    promptLabel,
+    promptText,
 }: RunBrowsingSessionParams): Promise<any[]> {
     const sessionId = randomUUID();
     let stagehand;
@@ -126,7 +130,7 @@ export async function runBrowsingSession({
     const debugUrl = useCloudEnv ? initResult.debugUrl : undefined;
     const sessionUrl = useCloudEnv ? initResult.sessionUrl : undefined;
 
-    sessionManager.addSession(sessionId, stagehand, browserbaseSessionId, debugUrl, sessionUrl);
+    sessionManager.addSession(sessionId, stagehand, browserbaseSessionId, debugUrl, sessionUrl, promptLabel, promptText);
 
     const page = stagehand.page;
 
@@ -281,6 +285,9 @@ export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfIn
 
         console.log(`Starting session ${i} with screen size ${concreteScreenSize}`);
 
+        // Get the first prompt text from the instructions array
+        const firstPrompt = listOfInstructionsPrompts[i][0] || '';
+
         promises.push(runBrowsingSession({
             useCloudEnv,
             websiteTarget,
@@ -289,6 +296,8 @@ export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfIn
             logRocketServer,
             logRocketAppId,
             screenSize: concreteScreenSize,
+            promptLabel: `Prompt ${i + 1}`,
+            promptText: firstPrompt,
         }))
     }
     return await Promise.all(promises);
