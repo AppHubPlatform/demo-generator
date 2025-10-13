@@ -103,11 +103,24 @@ export default function Home() {
   const fetchSessionCount = async () => {
     try {
       const response = await fetch('/api/sessions');
+      if (!response.ok) {
+        // Don't update state on failed responses
+        return;
+      }
       const data = await response.json();
-      setActiveSessionCount(data.count || 0);
-      setActiveSessions(data.sessions || []);
+
+      // Only update if we have valid data
+      if (typeof data.count === 'number') {
+        setActiveSessionCount(data.count);
+      }
+
+      // Only update sessions if we have an array (even if empty)
+      if (Array.isArray(data.sessions)) {
+        setActiveSessions(data.sessions);
+      }
     } catch (err) {
       console.error('Error fetching session count:', err);
+      // Don't update state on error - keep showing previous sessions
     }
   };
 
