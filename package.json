@@ -3,12 +3,10 @@
   "version": "1.0.0",
   "description": "Browser automation demo using Stagehand",
   "type": "module",
-  "main": "run_script.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "legacy": "node run_script.js"
+    "start": "next start"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.20",

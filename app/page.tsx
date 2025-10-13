@@ -37,7 +37,7 @@ export default function Home() {
   }>>([]);
 
   // Wizard mode state
-  const [wizardWebsite, setWizardWebsite] = useState<string>('https://creditkarma.com');
+  const [wizardWebsite, setWizardWebsite] = useState<string>('');
   const [wizardResearch, setWizardResearch] = useState<string>('');
   const [wizardPrompts, setWizardPrompts] = useState<string[]>([]);
   const [isResearching, setIsResearching] = useState<boolean>(false);
@@ -713,7 +713,7 @@ export default function Home() {
                 type="text"
                 value={wizardWebsite}
                 onChange={(e) => setWizardWebsite(e.target.value)}
-                placeholder="https://example.com"
+                placeholder="e.g., https://creditkarma.com"
                 style={{
                   flex: 1,
                   padding: '12px',

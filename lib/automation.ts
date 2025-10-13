@@ -192,6 +192,12 @@ export async function runBrowsingSession({
         You should try to complete these tasks in a reasonable amount of time, but you do not need to rush. Your mouse movements, scrolling,
         and typing on the website should seem realistic for a HUMAN and not a bot. 
 
+        If you are not sure about how to do something, DO NOT EVER USE GOOGLE or attempt to search for information on other websites.
+        Just do your best to figure it out on the given website.
+
+        You should never attempt to visit a different website than the one you were given. You can click links on the website you are given,
+        but if the link appears to be an ad or takes you to a completely different website, DO NOT CLICK IT.
+
         DO NOT ASK FOLLOW UP QUESTIONS ABOUT THE GOAL. JUST TRY TO COMPLETE IT IN YOUR OWN WAY.
 
         If there are any cookie banners or pop ups, always click "accept", or "I Understand" or whatever is needed to approve the banner
@@ -285,9 +291,6 @@ export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfIn
 
         console.log(`Starting session ${i} with screen size ${concreteScreenSize}`);
 
-        // Get the first prompt text from the instructions array
-        const firstPrompt = listOfInstructionsPrompts[i][0] || '';
-
         promises.push(runBrowsingSession({
             useCloudEnv,
             websiteTarget,
@@ -297,7 +300,6 @@ export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfIn
             logRocketAppId,
             screenSize: concreteScreenSize,
             promptLabel: `Prompt ${i + 1}`,
-            promptText: firstPrompt,
         }))
     }
     return await Promise.all(promises);
