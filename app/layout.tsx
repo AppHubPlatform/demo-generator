@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ReactNode } from 'react';
 import './globals.css';
+import LogRocketProvider from './components/LogRocketProvider';
 
 export const metadata: Metadata = {
   title: 'Browser Automation GUI',
@@ -11,7 +12,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body style={{ fontFamily: 'system-ui, sans-serif', margin: 0, padding: 0 }}>
-        {children}
+        <LogRocketProvider>
+          {children}
+        </LogRocketProvider>
       </body>
     </html>
   )
