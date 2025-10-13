@@ -3,15 +3,27 @@
 import { useEffect } from 'react';
 import LogRocket from 'logrocket';
 
+// Extend Window interface to include LogRocket
+declare global {
+  interface Window {
+    LogRocket: typeof LogRocket;
+  }
+}
+
 export default function LogRocketProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Only initialize in browser
     if (typeof window !== 'undefined') {
       LogRocket.init('apphub/logrocket-demomaker', {
         serverURL: 'https://staging-i.logrocket.io/i',
-      });
+        dashboardHost: 'https://staging.logrocket.com',
+      } as any);
 
-      console.log('[LogRocket] Initialized for app monitoring');
+      window.LogRocket = LogRocket
+
+      LogRocket.getSessionURL(sessionURL => {
+        console.log('[LogRocket] Session URL:', sessionURL);
+      });
 
       // Fetch user info from Cloudflare Access header
       fetch('/api/user')
