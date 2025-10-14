@@ -4,7 +4,7 @@ import './globals.css';
 import LogRocketProvider from './components/LogRocketProvider';
 
 export const metadata: Metadata = {
-  title: 'Browser Automation GUI',
+  title: 'LogRocket Demo Maker',
   description: 'GUI for running browser automation scripts',
 }
 
