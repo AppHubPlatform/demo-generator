@@ -1,12 +1,15 @@
 import { NextRequest } from 'next/server';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { streamText } from 'ai';
+import { Stagehand } from "@browserbasehq/stagehand";
 
 const google = createGoogleGenerativeAI({
     apiKey: process.env.GOOGLE_API_KEY || '',
 });
 
 async function fetchWebsiteContent(url: string): Promise<string> {
+    let stagehand: Stagehand | null = null;
+
     try {
         // Validate URL format
         let validUrl: URL;
@@ -21,19 +24,43 @@ async function fetchWebsiteContent(url: string): Promise<string> {
             throw new Error(`Invalid protocol: "${validUrl.protocol}". URL must start with http:// or https://`);
         }
 
-        console.log(`Fetching ${url}...`);
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            },
-            signal: AbortSignal.timeout(10000) // 10 second timeout
+        console.log(`Fetching ${url} using Browserbase...`);
+
+        // Use Browserbase to fetch content to bypass bot detection
+        stagehand = new Stagehand({
+            apiKey: process.env.BROWSERBASE_API_KEY,
+            projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
+            env: "BROWSERBASE",
+            disablePino: true,
+            modelClientOptions: { apiKey: process.env.GOOGLE_API_KEY },
+            logInferenceToFile: false,
+            verbose: 0,
+            browserbaseSessionCreateParams: {
+                projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
+                browserSettings: {
+                    blockAds: false,
+                    viewport: {
+                        width: 1280,
+                        height: 800,
+                    },
+                    solveCaptchas: true,
+                },
+                timeout: 60,
+                keepAlive: false,
+            }
         });
 
-        if (!response.ok) {
-            throw new Error(`Website returned error: ${response.status} ${response.statusText}`);
-        }
+        const initResult = await stagehand.init();
+        const page = stagehand.page;
 
-        const html = await response.text();
+        // Navigate to the page and wait for content to load
+        await page.goto(url, { waitUntil: "domcontentloaded" });
+
+        // Wait a moment for any dynamic content
+        await page.waitForTimeout(2000);
+
+        // Get the text content
+        const html = await page.content();
 
         // Extract text content from HTML
         // Remove script and style tags
@@ -80,6 +107,22 @@ async function fetchWebsiteContent(url: string): Promise<string> {
             }
         }
         throw new Error(`Failed to fetch website: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+        // Clean up browser session
+        if (stagehand) {
+            try {
+                // Only close if context exists (means init was successful)
+                if (stagehand.context) {
+                    await stagehand.context.close();
+                }
+            } catch (e) {
+                // Ignore cleanup errors
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                if (!errorMessage.includes('closed') && !errorMessage.includes('not initialized')) {
+                    console.error('Error closing browser:', e);
+                }
+            }
+        }
     }
 }
 

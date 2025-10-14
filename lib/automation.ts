@@ -185,8 +185,11 @@ export async function runBrowsingSession({
     }
 
     const agent = stagehand.agent({
-        provider: "google",
-        model: "gemini-2.5-computer-use-preview-10-2025",
+        // provider: "google",
+        // model: "gemini-2.5-computer-use-preview-10-2025",
+
+        provider: "anthropic",
+        model: "claude-sonnet-4-20250514",
 
         instructions: `You are an average human website user. You will be given instructions of some tasks to complete on a website.
         You should try to complete these tasks in a reasonable amount of time, but you do not need to rush. Your mouse movements, scrolling,

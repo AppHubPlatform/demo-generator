@@ -110,13 +110,29 @@ export default function Home() {
       const data = await response.json();
 
       // Only update if we have valid data
-      if (typeof data.count === 'number') {
-        setActiveSessionCount(data.count);
-      }
-
-      // Only update sessions if we have an array (even if empty)
-      if (Array.isArray(data.sessions)) {
-        setActiveSessions(data.sessions);
+      if (typeof data.count === 'number' && Array.isArray(data.sessions)) {
+        // Only accept empty arrays if we're starting fresh or explicitly clearing
+        // This prevents flickering from empty responses due to serverless instance routing
+        if (data.sessions.length > 0 || activeSessions.length === 0) {
+          setActiveSessionCount(data.count);
+          setActiveSessions(data.sessions);
+        }
+        // If we get an empty response but had sessions before,
+        // verify by making another request to confirm they're really gone
+        else if (data.sessions.length === 0 && activeSessions.length > 0) {
+          // Wait a moment and check again before clearing
+          setTimeout(async () => {
+            const confirmResponse = await fetch('/api/sessions');
+            if (confirmResponse.ok) {
+              const confirmData = await confirmResponse.json();
+              if (confirmData.sessions.length === 0) {
+                // Confirmed empty, update state
+                setActiveSessionCount(0);
+                setActiveSessions([]);
+              }
+            }
+          }, 500);
+        }
       }
     } catch (err) {
       console.error('Error fetching session count:', err);
