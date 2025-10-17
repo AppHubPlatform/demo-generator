@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { streamText } from 'ai';
+import { getPromptGenerationPrompt } from '@/lib/prompts';
 
 const google = createGoogleGenerativeAI({
     apiKey: process.env.GOOGLE_API_KEY || '',
@@ -16,24 +17,7 @@ export async function POST(request: NextRequest) {
 
         const count = numPrompts || 5;
 
-        const prompt = `You are a UX researcher who creates realistic user behavior prompts for browser automation testing.
-
-Website: ${website}
-
-Research Summary:
-${research}
-
-Based on this research, generate exactly ${count} realistic prompts that simulate actual user behavior on this site.
-
-Each prompt should be a natural language instruction for a browser automation agent. Make them diverse and realistic.
-
-Provide your prompts in this exact format:
-PROMPT_1: [first prompt]
-PROMPT_2: [second prompt]
-PROMPT_3: [third prompt]
-... and so on for all ${count} prompts.
-
-No extra explanation needed - just the prompts in the format shown above.`;
+        const prompt = getPromptGenerationPrompt(website, research, count);
 
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
@@ -56,13 +40,25 @@ No extra explanation needed - just the prompts in the format shown above.`;
 
                     // Extract prompts from the full text
                     const prompts = [];
-                    const promptRegex = /PROMPT_\d+:\s*(.+?)(?=(?:PROMPT_\d+:|$))/gs;
+                    const promptRegex = /PROMPT_\d+:\s*([\s\S]+?)(?=(?:PROMPT_\d+:|$))/g;
                     const matches = fullText.matchAll(promptRegex);
 
                     for (const match of matches) {
-                        const prompt = match[1].trim();
-                        if (prompt) {
-                            prompts.push(prompt);
+                        const promptBlock = match[1].trim();
+                        if (promptBlock) {
+                            // Extract steps from the bullet points
+                            // Remove bullet points (-, •, *, etc.) and clean up
+                            const steps = promptBlock
+                                .split('\n')
+                                .map(line => line.trim())
+                                .filter(line => line.length > 0)
+                                .map(line => line.replace(/^[-•*]\s*/, '')) // Remove bullet points
+                                .filter(step => step.length > 0);
+
+                            // Join steps with newlines so they can be split later
+                            if (steps.length > 0) {
+                                prompts.push(steps.join('\n'));
+                            }
                         }
                     }
 

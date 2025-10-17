@@ -95,6 +95,52 @@ export function generateLogRocketScript(server: LogRocketServer = 'prod', appID:
         opts.dom.textSanitizer = true;
       }
 
+
+      // disable console logging in LogRocket and then manually log all non browserstack events
+
+      opts.console = { isEnabled: false };
+
+      // Override console methods to filter out Browserbase logs
+      const originalConsole = {
+        log: console.log,
+        info: console.info,
+        warn: console.warn,
+        error: console.error
+      };
+
+      const filterBrowserStack = (args) => {
+        const message = args.join(' ');
+        return !message.toLowerCase().includes('browserbase');
+      };
+
+      console.log = (...args) => {
+        if (filterBrowserStack(args)) {
+          originalConsole.log(...args);
+          window.LogRocket.log(args.join(' '), 'log');
+        }
+      };
+
+      console.info = (...args) => {
+        if (filterBrowserStack(args)) {
+          originalConsole.info(...args);
+          window.LogRocket.log(args.join(' '), 'info');
+        }
+      };
+
+      console.warn = (...args) => {
+        if (filterBrowserStack(args)) {
+          originalConsole.warn(...args);
+          window.LogRocket.log(args.join(' '), 'warn');
+        }
+      };
+
+      console.error = (...args) => {
+        if (filterBrowserStack(args)) {
+          originalConsole.error(...args);
+          window.LogRocket.log(args.join(' '), 'error');
+        }
+      };
+
       window.logInfo('[LogRocket] Initializing with options', opts);
       window.LogRocket.init(decodeURIComponent(appID), opts);
 

@@ -4,6 +4,7 @@ import { sessionManager } from './sessionManager';
 import { randomUUID } from 'crypto';
 import { generateLogRocketScript } from './logRocketScript';
 import { devices } from 'playwright';
+import { BROWSER_AGENT_INSTRUCTIONS, getLoginInstruction } from './prompts';
 
 type LogRocketServer = 'demo' | 'staging' | 'prod';
 type ScreenSize = 'randomize' | 'desktop-large' | 'desktop-medium' | 'iphone-regular' | 'iphone-plus';
@@ -17,9 +18,13 @@ interface RunBrowsingSessionParams {
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
     screenSize?: ConcreteScreenSize;
+    modelProvider?: 'anthropic' | 'google';
     timeoutSeconds?: number;
     promptLabel?: string;
     promptText?: string;
+    requiresLogin?: boolean;
+    loginUsername?: string;
+    loginPassword?: string;
 }
 
 function getRandomScreenSize(): ConcreteScreenSize {
@@ -66,9 +71,13 @@ export async function runBrowsingSession({
     logRocketServer = 'prod',
     logRocketAppId = 'public-shares/credit-karma',
     screenSize = 'desktop-medium',
+    modelProvider = 'anthropic',
     timeoutSeconds = 600,
     promptLabel,
     promptText,
+    requiresLogin = false,
+    loginUsername,
+    loginPassword,
 }: RunBrowsingSessionParams): Promise<any[]> {
     const sessionId = randomUUID();
     let stagehand;
@@ -153,58 +162,13 @@ export async function runBrowsingSession({
 
     await page.goto(websiteTarget,  { waitUntil: "domcontentloaded" });
 
-    // Generate LogRocket script if enabled
-    let logRocketScript: string | null = null;
-    if (enableLogRocket) {
-        logRocketScript = generateLogRocketScript(logRocketServer, logRocketAppId);
-        await page.evaluate(logRocketScript);
-    }
-
-    if (enableLogRocket && Math.random() < 0.5) {
-        const fakeName = faker.person.fullName();
-        const fakeID = faker.string.uuid();
-
-        const randomNumber = Math.floor(Math.random() * 101);
-        const emailDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'me.com'];
-        const randomDomain = emailDomains[Math.floor(Math.random() * emailDomains.length)];
-        const fakeEmail = fakeName.toLowerCase().replace(/\s+/g, '.') + randomNumber + '@' + randomDomain;
-
-        await page.evaluate(`(() => {
-            window.LogRocket && window.LogRocket.identify('${fakeID}', {
-                name: '${fakeName}',
-                email: '${fakeEmail}',
-            });
-        })()`);
-    }
-
-    // Re-inject LogRocket script on page load if enabled
-    if (enableLogRocket && logRocketScript) {
-        page.on('load', async () => {
-            await page.evaluate(logRocketScript!);
-        });
-    }
-
     const agent = stagehand.agent({
-        // provider: "google",
-        // model: "gemini-2.5-computer-use-preview-10-2025",
+        provider: modelProvider,
+        model: modelProvider === 'google'
+            ? "gemini-2.5-computer-use-preview-10-2025"
+            : "claude-sonnet-4-20250514",
 
-        provider: "anthropic",
-        model: "claude-sonnet-4-20250514",
-
-        instructions: `You are an average human website user. You will be given instructions of some tasks to complete on a website.
-        You should try to complete these tasks in a reasonable amount of time, but you do not need to rush. Your mouse movements, scrolling,
-        and typing on the website should seem realistic for a HUMAN and not a bot. 
-
-        If you are not sure about how to do something, DO NOT EVER USE GOOGLE or attempt to search for information on other websites.
-        Just do your best to figure it out on the given website.
-
-        You should never attempt to visit a different website than the one you were given. You can click links on the website you are given,
-        but if the link appears to be an ad or takes you to a completely different website, DO NOT CLICK IT.
-
-        DO NOT ASK FOLLOW UP QUESTIONS ABOUT THE GOAL. JUST TRY TO COMPLETE IT IN YOUR OWN WAY.
-
-        If there are any cookie banners or pop ups, always click "accept", or "I Understand" or whatever is needed to approve the banner
-        and continue with your given tasks.`,
+        instructions: BROWSER_AGENT_INSTRUCTIONS,
 
         // verbose: true,
 
@@ -215,6 +179,47 @@ export async function runBrowsingSession({
 
     try {
         const results = [];
+
+        // If login is required, execute login first BEFORE starting LogRocket
+        if (requiresLogin && loginUsername && loginPassword) {
+            const loginInstruction = getLoginInstruction(loginUsername, loginPassword);
+            const loginResult = await agent.execute(loginInstruction);
+            results.push(loginResult);
+            console.log('Login completed:', loginResult);
+        }
+
+        // NOW inject LogRocket after login (if applicable)
+        let logRocketScript: string | null = null;
+        if (enableLogRocket) {
+            logRocketScript = generateLogRocketScript(logRocketServer, logRocketAppId);
+            await page.evaluate(logRocketScript);
+        }
+
+        if (enableLogRocket && Math.random() < 0.5) {
+            const fakeName = faker.person.fullName();
+            const fakeID = faker.string.uuid();
+
+            const randomNumber = Math.floor(Math.random() * 101);
+            const emailDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'me.com'];
+            const randomDomain = emailDomains[Math.floor(Math.random() * emailDomains.length)];
+            const fakeEmail = fakeName.toLowerCase().replace(/\s+/g, '.') + randomNumber + '@' + randomDomain;
+
+            await page.evaluate(`(() => {
+                window.LogRocket && window.LogRocket.identify('${fakeID}', {
+                    name: '${fakeName}',
+                    email: '${fakeEmail}',
+                });
+            })()`);
+        }
+
+        // Re-inject LogRocket script on page load if enabled
+        if (enableLogRocket && logRocketScript) {
+            page.on('load', async () => {
+                await page.evaluate(logRocketScript!);
+            });
+        }
+
+        // Execute remaining prompts
         for (const prompt of instructionsPrompts) {
             const result = await agent.execute(prompt);
             results.push(result);
@@ -246,9 +251,13 @@ interface RunMultipleSessionsParams {
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
     screenSize?: ScreenSize;
+    modelProvider?: 'anthropic' | 'google';
+    requiresLogin?: boolean;
+    loginUsername?: string;
+    loginPassword?: string;
 }
 
-export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize}: RunMultipleSessionsParams): Promise<any[]> {
+export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, requiresLogin, loginUsername, loginPassword}: RunMultipleSessionsParams): Promise<any[]> {
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < numSessions; i++) {
         const timeoutSeconds = Math.floor(Math.random() * (600 - 120 + 1)) + 120;
@@ -268,7 +277,11 @@ export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarg
             logRocketServer,
             logRocketAppId,
             screenSize: concreteScreenSize,
+            modelProvider,
             timeoutSeconds,
+            requiresLogin,
+            loginUsername,
+            loginPassword,
         }))
     }
     return await Promise.all(promises);
@@ -282,9 +295,13 @@ interface MapSessionsToPromptsParams {
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
     screenSize?: ScreenSize;
+    modelProvider?: 'anthropic' | 'google';
+    requiresLogin?: boolean;
+    loginUsername?: string;
+    loginPassword?: string;
 }
 
-export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfInstructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize}: MapSessionsToPromptsParams): Promise<any[]> {
+export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfInstructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, requiresLogin, loginUsername, loginPassword}: MapSessionsToPromptsParams): Promise<any[]> {
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < listOfInstructionsPrompts.length; i++) {
         // If randomize, pick a random screen size for this session
@@ -302,7 +319,11 @@ export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfIn
             logRocketServer,
             logRocketAppId,
             screenSize: concreteScreenSize,
+            modelProvider,
             promptLabel: `Prompt ${i + 1}`,
+            requiresLogin,
+            loginUsername,
+            loginPassword,
         }))
     }
     return await Promise.all(promises);

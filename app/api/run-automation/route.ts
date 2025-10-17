@@ -12,9 +12,13 @@ interface RequestBody {
     logRocketServer?: 'demo' | 'staging' | 'prod';
     logRocketAppId?: string;
     screenSize?: ScreenSize;
+    modelProvider?: 'anthropic' | 'google';
     instructionsPrompts?: string[];
     numSessions?: number;
     listOfInstructionsPrompts?: string[][];
+    requiresLogin?: boolean;
+    loginUsername?: string;
+    loginPassword?: string;
 }
 
 function getRandomScreenSize(): ConcreteScreenSize {
@@ -32,7 +36,7 @@ function resolveScreenSize(screenSize?: ScreenSize): ConcreteScreenSize {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json() as RequestBody;
-        const { mode, useCloudEnv, websiteTarget, enableLogRocket, logRocketServer, logRocketAppId, screenSize, instructionsPrompts, numSessions, listOfInstructionsPrompts } = body;
+        const { mode, useCloudEnv, websiteTarget, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, instructionsPrompts, numSessions, listOfInstructionsPrompts, requiresLogin, loginUsername, loginPassword } = body;
 
         // Force cloud environment in production
         const deploymentEnv = process.env.DEPLOYMENT_ENV || 'local';
@@ -57,6 +61,10 @@ export async function POST(request: NextRequest) {
                     logRocketServer: logRocketServer || 'prod',
                     logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
                     screenSize: resolveScreenSize(screenSize),
+                    modelProvider: modelProvider || 'anthropic',
+                    requiresLogin,
+                    loginUsername,
+                    loginPassword,
                 });
                 break;
 
@@ -76,6 +84,10 @@ export async function POST(request: NextRequest) {
                     logRocketServer: logRocketServer || 'prod',
                     logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
                     screenSize: screenSize || 'desktop-medium',
+                    modelProvider: modelProvider || 'anthropic',
+                    requiresLogin,
+                    loginUsername,
+                    loginPassword,
                 });
                 break;
 
@@ -94,6 +106,10 @@ export async function POST(request: NextRequest) {
                     logRocketServer: logRocketServer || 'prod',
                     logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
                     screenSize: screenSize || 'desktop-medium',
+                    modelProvider: modelProvider || 'anthropic',
+                    requiresLogin,
+                    loginUsername,
+                    loginPassword,
                 });
                 break;
 

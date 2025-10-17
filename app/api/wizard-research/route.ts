@@ -2,13 +2,34 @@ import { NextRequest } from 'next/server';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { streamText } from 'ai';
 import { Stagehand } from "@browserbasehq/stagehand";
+import { getWebsiteResearchPrompt, getLoginInstruction, BROWSER_AGENT_INSTRUCTIONS } from '@/lib/prompts';
+import { sessionManager } from '@/lib/sessionManager';
+import { randomUUID } from 'crypto';
 
 const google = createGoogleGenerativeAI({
     apiKey: process.env.GOOGLE_API_KEY || '',
 });
 
-async function fetchWebsiteContent(url: string): Promise<string> {
+interface FetchResult {
+    content: string;
+    sessionId?: string;
+    browserbaseSessionId?: string;
+    debugUrl?: string;
+    sessionUrl?: string;
+}
+
+async function fetchWebsiteContent(
+    url: string,
+    statusCallback?: (status: string) => void,
+    requiresLogin?: boolean,
+    loginUsername?: string,
+    loginPassword?: string
+): Promise<FetchResult> {
     let stagehand: Stagehand | null = null;
+    const sessionId = randomUUID();
+    let browserbaseSessionId: string | undefined;
+    let debugUrl: string | undefined;
+    let sessionUrl: string | undefined;
 
     try {
         // Validate URL format
@@ -24,6 +45,7 @@ async function fetchWebsiteContent(url: string): Promise<string> {
             throw new Error(`Invalid protocol: "${validUrl.protocol}". URL must start with http:// or https://`);
         }
 
+        statusCallback?.('Initializing browser session...');
         console.log(`Fetching ${url} using Browserbase...`);
 
         // Use Browserbase to fetch content to bypass bot detection
@@ -45,20 +67,55 @@ async function fetchWebsiteContent(url: string): Promise<string> {
                     },
                     solveCaptchas: true,
                 },
-                timeout: 60,
+                timeout: 300,
                 keepAlive: false,
             }
         });
 
+        statusCallback?.('Starting browser...');
         const initResult = await stagehand.init();
         const page = stagehand.page;
 
+        // Extract session info from Browserbase
+        browserbaseSessionId = initResult.sessionId;
+        debugUrl = initResult.debugUrl;
+        sessionUrl = initResult.sessionUrl;
+
+        // If login is required, add session to manager so it can be displayed
+        if (requiresLogin) {
+            sessionManager.addSession(sessionId, stagehand, browserbaseSessionId, debugUrl, sessionUrl, 'Research Session', url);
+        }
+
+        statusCallback?.(`Navigating to ${url}...`);
         // Navigate to the page and wait for content to load
         await page.goto(url, { waitUntil: "domcontentloaded" });
 
+        // If login is required, perform login before extracting content
+        if (requiresLogin && loginUsername && loginPassword) {
+            statusCallback?.('Logging in...');
+
+            const agent = stagehand.agent({
+                provider: 'anthropic',
+                model: "claude-sonnet-4-20250514",
+                instructions: BROWSER_AGENT_INSTRUCTIONS,
+                options: {
+                    apiKey: process.env.ANTHROPIC_API_KEY,
+                },
+            });
+
+            const loginInstruction = getLoginInstruction(loginUsername, loginPassword);
+            await agent.execute(loginInstruction);
+
+            // Wait for login to complete and page to load
+            statusCallback?.('Login complete, loading page...');
+            await page.waitForTimeout(5000);
+        }
+
+        statusCallback?.('Loading page content...');
         // Wait a moment for any dynamic content
         await page.waitForTimeout(2000);
 
+        statusCallback?.('Extracting page text...');
         // Get the text content
         const html = await page.content();
 
@@ -86,7 +143,14 @@ async function fetchWebsiteContent(url: string): Promise<string> {
         }
 
         console.log(`Fetched ${url}, extracted ${limitedText.length} characters`);
-        return limitedText;
+
+        return {
+            content: limitedText,
+            sessionId,
+            browserbaseSessionId,
+            debugUrl,
+            sessionUrl,
+        };
     } catch (error) {
         console.error('Error fetching website:', error);
         if (error instanceof Error) {
@@ -108,6 +172,11 @@ async function fetchWebsiteContent(url: string): Promise<string> {
         }
         throw new Error(`Failed to fetch website: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
+        // Remove from session manager if it was added
+        if (requiresLogin) {
+            sessionManager.removeSession(sessionId);
+        }
+
         // Clean up browser session
         if (stagehand) {
             try {
@@ -128,38 +197,57 @@ async function fetchWebsiteContent(url: string): Promise<string> {
 
 export async function POST(request: NextRequest) {
     try {
-        const { website } = await request.json();
+        const { website, requiresLogin, loginUsername, loginPassword } = await request.json();
 
         if (!website) {
             return new Response('Website URL is required', { status: 400 });
         }
 
-        // Fetch the website content first
-        const websiteContent = await fetchWebsiteContent(website);
-
-        const prompt = `You are a UX researcher analyzing websites to understand user behavior patterns.
-
-I have fetched the content from ${website}. Here is the text content from that website:
-
-${websiteContent}
-
-Based on this actual website content, provide a CONCISE summary (3-4 sentences maximum) covering:
-1. What the company/site does (main purpose)
-2. Key features or sections users interact with
-3. Common user behaviors/journeys on this type of site
-
-Be brief and focused. No extra explanation needed.`;
-
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
             async start(controller) {
                 try {
-                    const result = await streamText({
+                    // Send status updates
+                    const sendStatus = (status: string) => {
+                        const data = JSON.stringify({ type: 'status', content: status });
+                        controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+                    };
+
+                    sendStatus('Validating URL...');
+
+                    // Fetch the website content with status updates
+                    const result = await fetchWebsiteContent(
+                        website,
+                        sendStatus,
+                        requiresLogin,
+                        loginUsername,
+                        loginPassword
+                    );
+
+                    // Send session info if login is required and we have a debug URL
+                    if (requiresLogin && result.debugUrl) {
+                        const sessionData = JSON.stringify({
+                            type: 'session',
+                            session: {
+                                id: result.sessionId,
+                                browserbaseSessionId: result.browserbaseSessionId,
+                                debugUrl: result.debugUrl,
+                                sessionUrl: result.sessionUrl,
+                            }
+                        });
+                        controller.enqueue(encoder.encode(`data: ${sessionData}\n\n`));
+                    }
+
+                    sendStatus('Analyzing website with AI...');
+
+                    const prompt = getWebsiteResearchPrompt(website, result.content);
+
+                    const aiResult = await streamText({
                         model: google('gemini-2.0-flash-exp'),
                         prompt: prompt,
                     });
 
-                    for await (const textPart of result.textStream) {
+                    for await (const textPart of aiResult.textStream) {
                         // Send research updates
                         const data = JSON.stringify({ type: 'research', content: textPart });
                         controller.enqueue(encoder.encode(`data: ${data}\n\n`));

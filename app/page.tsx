@@ -15,12 +15,16 @@ export default function Home() {
   const [isProduction, setIsProduction] = useState<boolean>(false);
   const [enableLogRocket, setEnableLogRocket] = useState<boolean>(true);
   const [logRocketServer, setLogRocketServer] = useState<LogRocketServer>('prod');
-  const [logRocketAppId, setLogRocketAppId] = useState<string>('public-shares/credit-karma');
+  const [logRocketAppId, setLogRocketAppId] = useState<string>('');
   const [screenSize, setScreenSize] = useState<ScreenSize>('randomize');
+  const [modelProvider, setModelProvider] = useState<'anthropic' | 'google'>('anthropic');
   const [websiteTarget, setWebsiteTarget] = useState<string>('https://creditkarma.com');
   const [instructionsPrompts, setInstructionsPrompts] = useState<string>('Browse around the site and click on credit cards.\nReview credit cards in 3 different categories\nReview types of personal loans');
   const [mappedPrompts, setMappedPrompts] = useState<string[]>(['', '', '', '', '']);
   const [numSessions, setNumSessions] = useState<number>(1);
+  const [requiresLogin, setRequiresLogin] = useState<boolean>(false);
+  const [loginUsername, setLoginUsername] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,10 +45,188 @@ export default function Home() {
   const [wizardResearch, setWizardResearch] = useState<string>('');
   const [wizardPrompts, setWizardPrompts] = useState<string[]>([]);
   const [isResearching, setIsResearching] = useState<boolean>(false);
+  const [researchStatus, setResearchStatus] = useState<string>('');
   const [numPromptsToGenerate, setNumPromptsToGenerate] = useState<number>(5);
   const [isGeneratingPrompts, setIsGeneratingPrompts] = useState<boolean>(false);
   const [editingPromptIndex, setEditingPromptIndex] = useState<number | null>(null);
   const [editingPromptText, setEditingPromptText] = useState<string>('');
+
+  // Parse LogRocket URL to extract server and appID
+  const parseLogRocketUrl = (url: string) => {
+    try {
+      const urlObj = new URL(url);
+      const hostname = urlObj.hostname;
+
+      // Determine server type from hostname
+      let server: LogRocketServer = 'prod';
+      if (hostname.includes('staging.logrocket.com')) {
+        server = 'staging';
+      } else if (hostname.includes('demo.logrocket.com')) {
+        server = 'demo';
+      } else if (hostname.includes('app.logrocket.com')) {
+        server = 'prod';
+      }
+
+      // Extract appID from pathname
+      // Format: /org/app or /org/app/anything-else
+      const pathParts = urlObj.pathname.split('/').filter(part => part.length > 0);
+      let appId = '';
+      if (pathParts.length >= 2) {
+        appId = `${pathParts[0]}/${pathParts[1]}`;
+      }
+
+      return { server, appId };
+    } catch (e) {
+      // Invalid URL, return defaults
+      return null;
+    }
+  };
+
+  const handleLogRocketUrlChange = (url: string) => {
+    const parsed = parseLogRocketUrl(url);
+    if (parsed) {
+      setLogRocketServer(parsed.server);
+      setLogRocketAppId(parsed.appId);
+    }
+  };
+
+  // Load saved values from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = {
+        usageMode: localStorage.getItem('usageMode') as UsageMode | null,
+        mode: localStorage.getItem('mode') as Mode | null,
+        useCloudEnv: localStorage.getItem('useCloudEnv'),
+        enableLogRocket: localStorage.getItem('enableLogRocket'),
+        logRocketServer: localStorage.getItem('logRocketServer') as LogRocketServer | null,
+        logRocketAppId: localStorage.getItem('logRocketAppId'),
+        screenSize: localStorage.getItem('screenSize') as ScreenSize | null,
+        modelProvider: localStorage.getItem('modelProvider') as 'anthropic' | 'google' | null,
+        websiteTarget: localStorage.getItem('websiteTarget'),
+        instructionsPrompts: localStorage.getItem('instructionsPrompts'),
+        numSessions: localStorage.getItem('numSessions'),
+        requiresLogin: localStorage.getItem('requiresLogin'),
+        loginUsername: localStorage.getItem('loginUsername'),
+        loginPassword: localStorage.getItem('loginPassword'),
+        wizardWebsite: localStorage.getItem('wizardWebsite'),
+        numPromptsToGenerate: localStorage.getItem('numPromptsToGenerate'),
+      };
+
+      if (saved.usageMode) setUsageMode(saved.usageMode);
+      if (saved.mode) setMode(saved.mode);
+      if (saved.useCloudEnv !== null) setUseCloudEnv(saved.useCloudEnv === 'true');
+      if (saved.enableLogRocket !== null) setEnableLogRocket(saved.enableLogRocket === 'true');
+      if (saved.logRocketServer) setLogRocketServer(saved.logRocketServer);
+      if (saved.logRocketAppId) setLogRocketAppId(saved.logRocketAppId);
+      if (saved.screenSize) setScreenSize(saved.screenSize);
+      if (saved.modelProvider) setModelProvider(saved.modelProvider);
+      if (saved.websiteTarget) setWebsiteTarget(saved.websiteTarget);
+      if (saved.instructionsPrompts) setInstructionsPrompts(saved.instructionsPrompts);
+      if (saved.numSessions) setNumSessions(parseInt(saved.numSessions));
+      if (saved.requiresLogin !== null) setRequiresLogin(saved.requiresLogin === 'true');
+      if (saved.loginUsername) setLoginUsername(saved.loginUsername);
+      if (saved.loginPassword) setLoginPassword(saved.loginPassword);
+      if (saved.wizardWebsite) setWizardWebsite(saved.wizardWebsite);
+      if (saved.numPromptsToGenerate) setNumPromptsToGenerate(parseInt(saved.numPromptsToGenerate));
+    }
+  }, []);
+
+  // Save values to localStorage when they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('usageMode', usageMode);
+    }
+  }, [usageMode]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mode', mode);
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('useCloudEnv', useCloudEnv.toString());
+    }
+  }, [useCloudEnv]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('enableLogRocket', enableLogRocket.toString());
+    }
+  }, [enableLogRocket]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('logRocketServer', logRocketServer);
+    }
+  }, [logRocketServer]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('logRocketAppId', logRocketAppId);
+    }
+  }, [logRocketAppId]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('screenSize', screenSize);
+    }
+  }, [screenSize]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('modelProvider', modelProvider);
+    }
+  }, [modelProvider]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('websiteTarget', websiteTarget);
+    }
+  }, [websiteTarget]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('instructionsPrompts', instructionsPrompts);
+    }
+  }, [instructionsPrompts]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('numSessions', numSessions.toString());
+    }
+  }, [numSessions]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('requiresLogin', requiresLogin.toString());
+    }
+  }, [requiresLogin]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('loginUsername', loginUsername);
+    }
+  }, [loginUsername]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('loginPassword', loginPassword);
+    }
+  }, [loginPassword]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('wizardWebsite', wizardWebsite);
+    }
+  }, [wizardWebsite]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('numPromptsToGenerate', numPromptsToGenerate.toString());
+    }
+  }, [numPromptsToGenerate]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -61,6 +243,10 @@ export default function Home() {
         logRocketServer,
         logRocketAppId,
         screenSize,
+        modelProvider,
+        requiresLogin,
+        loginUsername: requiresLogin ? loginUsername : undefined,
+        loginPassword: requiresLogin ? loginPassword : undefined,
       };
 
       if (mode === 'single' || mode === 'multiple') {
@@ -165,7 +351,10 @@ export default function Home() {
     setIsResearching(true);
     setWizardResearch('');
     setWizardPrompts([]);
+    setResearchStatus('');
     setError(null);
+
+    let researchSessionId: string | null = null;
 
     try {
       const response = await fetch('/api/wizard-research', {
@@ -173,7 +362,12 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ website: wizardWebsite }),
+        body: JSON.stringify({
+          website: wizardWebsite,
+          requiresLogin,
+          loginUsername: requiresLogin ? loginUsername : undefined,
+          loginPassword: requiresLogin ? loginPassword : undefined,
+        }),
       });
 
       // Check if the response is an error
@@ -201,9 +395,24 @@ export default function Home() {
 
               try {
                 const parsed = JSON.parse(data);
-                if (parsed.type === 'research') {
+                if (parsed.type === 'status') {
+                  setResearchStatus(parsed.content);
+                } else if (parsed.type === 'research') {
                   researchText += parsed.content;
                   setWizardResearch(researchText);
+                } else if (parsed.type === 'session') {
+                  // Add research session to active sessions
+                  researchSessionId = parsed.session.id;
+                  setActiveSessions(prev => [...prev, {
+                    id: parsed.session.id,
+                    startTime: new Date().toISOString(),
+                    debugUrl: parsed.session.debugUrl,
+                    sessionUrl: parsed.session.sessionUrl,
+                    browserbaseSessionId: parsed.session.browserbaseSessionId,
+                    promptLabel: 'Research Session',
+                    promptText: wizardWebsite,
+                  }]);
+                  setActiveSessionCount(prev => prev + 1);
                 }
               } catch (e) {
                 // Skip invalid JSON
@@ -212,11 +421,23 @@ export default function Home() {
           }
         }
       }
+
+      // Remove research session from active sessions
+      if (researchSessionId) {
+        setActiveSessions(prev => prev.filter(s => s.id !== researchSessionId));
+        setActiveSessionCount(prev => prev - 1);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to research website');
       setWizardResearch('');
+      // Remove research session on error
+      if (researchSessionId) {
+        setActiveSessions(prev => prev.filter(s => s.id !== researchSessionId));
+        setActiveSessionCount(prev => prev - 1);
+      }
     } finally {
       setIsResearching(false);
+      setResearchStatus('');
     }
   };
 
@@ -298,7 +519,10 @@ export default function Home() {
 
     try {
       // Run mapped sessions - one session per prompt
-      const listOfInstructionsPrompts = wizardPrompts.map(prompt => [prompt]);
+      // Each prompt contains multiple steps separated by newlines
+      const listOfInstructionsPrompts = wizardPrompts.map(prompt =>
+        prompt.split('\n').filter(step => step.trim())
+      );
 
       const payload = {
         mode: 'mapped' as Mode,
@@ -309,6 +533,9 @@ export default function Home() {
         logRocketServer,
         logRocketAppId,
         screenSize,
+        requiresLogin,
+        loginUsername: requiresLogin ? loginUsername : undefined,
+        loginPassword: requiresLogin ? loginPassword : undefined,
       };
 
       const response = await fetch('/api/run-automation', {
@@ -465,6 +692,20 @@ export default function Home() {
 
           <div>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              AI Model Provider
+            </label>
+            <select
+              value={modelProvider}
+              onChange={(e) => setModelProvider(e.target.value as 'anthropic' | 'google')}
+              style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+            >
+              <option value="anthropic">Anthropic (Claude Sonnet 4)</option>
+              <option value="google">Google (Gemini 2.5 Computer Use)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
               Mode
             </label>
             <select
@@ -491,6 +732,48 @@ export default function Home() {
               required
             />
           </div>
+
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={requiresLogin}
+                onChange={(e) => setRequiresLogin(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              <span style={{ fontWeight: 'bold' }}>Website requires a login</span>
+            </label>
+          </div>
+
+          {requiresLogin && (
+            <>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  placeholder="Enter username"
+                  style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="Enter password"
+                  style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+                />
+              </div>
+            </>
+          )}
 
           {mode === 'multiple' && (
             <div>
@@ -624,6 +907,31 @@ export default function Home() {
 
           <div>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: enableLogRocket ? 'inherit' : '#999' }}>
+              LogRocket App URL
+            </label>
+            <input
+              type="text"
+              onChange={(e) => handleLogRocketUrlChange(e.target.value)}
+              disabled={!enableLogRocket}
+              placeholder="e.g., https://app.logrocket.com/epos-now/hq"
+              style={{
+                width: '100%',
+                padding: '8px',
+                fontSize: '14px',
+                backgroundColor: enableLogRocket ? 'white' : '#f0f0f0',
+                color: enableLogRocket ? 'inherit' : '#999',
+                cursor: enableLogRocket ? 'text' : 'not-allowed',
+                boxSizing: 'border-box',
+                marginBottom: '10px'
+              }}
+            />
+            <div style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>
+              Paste your LogRocket app URL to auto-fill settings below
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: enableLogRocket ? 'inherit' : '#999' }}>
               Server
             </label>
             <select
@@ -737,38 +1045,101 @@ export default function Home() {
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '16px' }}>
               Website URL
             </label>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <input
-                type="text"
-                value={wizardWebsite}
-                onChange={(e) => setWizardWebsite(e.target.value)}
-                placeholder="e.g., https://creditkarma.com"
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  fontSize: '16px',
-                  border: '2px solid #ccc',
-                  borderRadius: '5px',
-                }}
-              />
-              <button
-                onClick={handleWizardResearch}
-                disabled={isResearching || !wizardWebsite}
-                style={{
-                  padding: '12px 30px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  backgroundColor: isResearching ? '#ccc' : '#0070f3',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: isResearching ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {isResearching ? 'Researching...' : 'Research Website'}
-              </button>
+            <input
+              type="text"
+              value={wizardWebsite}
+              onChange={(e) => setWizardWebsite(e.target.value)}
+              placeholder="e.g., https://creditkarma.com"
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '16px',
+                border: '2px solid #ccc',
+                borderRadius: '5px',
+                marginBottom: '15px',
+              }}
+            />
+
+            {/* Login Options */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={requiresLogin}
+                  onChange={(e) => setRequiresLogin(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span style={{ fontWeight: 'bold' }}>Website requires a login</span>
+              </label>
             </div>
+
+            {requiresLogin && (
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    value={loginUsername}
+                    onChange={(e) => setLoginUsername(e.target.value)}
+                    placeholder="Enter username"
+                    style={{ width: '100%', padding: '10px', fontSize: '14px', border: '1px solid #ccc', borderRadius: '5px', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="Enter password"
+                    style={{ width: '100%', padding: '10px', fontSize: '14px', border: '1px solid #ccc', borderRadius: '5px', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={handleWizardResearch}
+              disabled={isResearching || !wizardWebsite}
+              style={{
+                padding: '12px 30px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                backgroundColor: isResearching ? '#ccc' : '#0070f3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: isResearching ? 'not-allowed' : 'pointer',
+                width: '100%',
+              }}
+            >
+              {isResearching ? 'Researching...' : 'Research Website'}
+            </button>
           </div>
+
+          {/* Status Display */}
+          {isResearching && researchStatus && (
+            <div style={{
+              marginBottom: '20px',
+              padding: '15px',
+              backgroundColor: '#fff3cd',
+              borderRadius: '8px',
+              border: '1px solid #ffc107',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '14px',
+                color: '#856404',
+                fontWeight: 'bold'
+              }}>
+                {researchStatus}
+              </div>
+            </div>
+          )}
 
           {/* Research Output */}
           {wizardResearch && (
@@ -1016,6 +1387,31 @@ export default function Home() {
                         />
                         <span style={{ fontWeight: 'bold' }}>Record in LogRocket</span>
                       </label>
+                    </div>
+
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: enableLogRocket ? 'inherit' : '#999' }}>
+                        LogRocket App URL
+                      </label>
+                      <input
+                        type="text"
+                        onChange={(e) => handleLogRocketUrlChange(e.target.value)}
+                        disabled={!enableLogRocket}
+                        placeholder="e.g., https://app.logrocket.com/epos-now/hq"
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          fontSize: '14px',
+                          backgroundColor: enableLogRocket ? 'white' : '#f0f0f0',
+                          color: enableLogRocket ? 'inherit' : '#999',
+                          cursor: enableLogRocket ? 'text' : 'not-allowed',
+                          boxSizing: 'border-box',
+                          marginBottom: '5px'
+                        }}
+                      />
+                      <div style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>
+                        Paste your LogRocket app URL to auto-fill settings below
+                      </div>
                     </div>
 
                     <div style={{ marginBottom: '15px' }}>
