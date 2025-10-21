@@ -44,12 +44,16 @@ export default function Home() {
   const [wizardWebsite, setWizardWebsite] = useState<string>('');
   const [wizardResearch, setWizardResearch] = useState<string>('');
   const [wizardPrompts, setWizardPrompts] = useState<string[]>([]);
+  const [wizardContextId, setWizardContextId] = useState<string>('');
+  const [wizardLoggedInUrl, setWizardLoggedInUrl] = useState<string>('');
   const [isResearching, setIsResearching] = useState<boolean>(false);
   const [researchStatus, setResearchStatus] = useState<string>('');
   const [numPromptsToGenerate, setNumPromptsToGenerate] = useState<number>(5);
   const [isGeneratingPrompts, setIsGeneratingPrompts] = useState<boolean>(false);
   const [editingPromptIndex, setEditingPromptIndex] = useState<number | null>(null);
   const [editingPromptText, setEditingPromptText] = useState<string>('');
+  const [hasCachedResearch, setHasCachedResearch] = useState<boolean>(false);
+  const [cachedResearchDate, setCachedResearchDate] = useState<string>('');
 
   // Parse LogRocket URL to extract server and appID
   const parseLogRocketUrl = (url: string) => {
@@ -87,6 +91,55 @@ export default function Home() {
     if (parsed) {
       setLogRocketServer(parsed.server);
       setLogRocketAppId(parsed.appId);
+    }
+  };
+
+  // Research cache functions
+  const saveResearchToCache = (url: string, research: string, contextId: string, loggedInUrl?: string) => {
+    if (typeof window === 'undefined') return;
+
+    const cacheKey = `research_${url}`;
+    const cacheData = {
+      research,
+      contextId,
+      loggedInUrl,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+  };
+
+  const loadResearchFromCache = (url: string) => {
+    if (typeof window === 'undefined') return null;
+
+    const cacheKey = `research_${url}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (!cached) return null;
+
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const checkForCachedResearch = (url: string) => {
+    const cached = loadResearchFromCache(url);
+    if (cached) {
+      setHasCachedResearch(true);
+      setCachedResearchDate(new Date(cached.timestamp).toLocaleString());
+    } else {
+      setHasCachedResearch(false);
+      setCachedResearchDate('');
+    }
+  };
+
+  const loadCachedResearch = () => {
+    const cached = loadResearchFromCache(wizardWebsite);
+    if (cached) {
+      setWizardResearch(cached.research);
+      setWizardContextId(cached.contextId || '');
+      setWizardLoggedInUrl(cached.loggedInUrl || '');
+      setHasCachedResearch(false); // Hide the prompt after loading
     }
   };
 
@@ -228,6 +281,16 @@ export default function Home() {
     }
   }, [numPromptsToGenerate]);
 
+  // Check for cached research when wizard website changes
+  useEffect(() => {
+    if (wizardWebsite && wizardWebsite.trim()) {
+      checkForCachedResearch(wizardWebsite);
+    } else {
+      setHasCachedResearch(false);
+      setCachedResearchDate('');
+    }
+  }, [wizardWebsite]);
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -351,10 +414,15 @@ export default function Home() {
     setIsResearching(true);
     setWizardResearch('');
     setWizardPrompts([]);
+    setWizardContextId(''); // Clear previous context
+    setWizardLoggedInUrl(''); // Clear previous logged-in URL
     setResearchStatus('');
     setError(null);
+    setHasCachedResearch(false); // Hide cached research prompt
 
     let researchSessionId: string | null = null;
+    let capturedContextId = '';
+    let capturedLoggedInUrl = '';
 
     try {
       const response = await fetch('/api/wizard-research', {
@@ -413,6 +481,16 @@ export default function Home() {
                     promptText: wizardWebsite,
                   }]);
                   setActiveSessionCount(prev => prev + 1);
+                } else if (parsed.type === 'context') {
+                  // Store context ID for reuse in wizard sessions
+                  capturedContextId = parsed.contextId;
+                  setWizardContextId(parsed.contextId);
+                  console.log('Received context ID:', parsed.contextId);
+                } else if (parsed.type === 'loggedInUrl') {
+                  // Store logged-in URL for reuse in wizard sessions
+                  capturedLoggedInUrl = parsed.url;
+                  setWizardLoggedInUrl(parsed.url);
+                  console.log('Logged-in URL:', parsed.url);
                 }
               } catch (e) {
                 // Skip invalid JSON
@@ -426,6 +504,22 @@ export default function Home() {
       if (researchSessionId) {
         setActiveSessions(prev => prev.filter(s => s.id !== researchSessionId));
         setActiveSessionCount(prev => prev - 1);
+      }
+
+      // Wait for Browserbase to fully persist the context
+      // Browserbase docs: "After a session using a context with persist: true,
+      // there will be a brief delay before the updated context state is ready for use"
+      if (capturedContextId) {
+        setResearchStatus('Waiting for context to sync...');
+        console.log('[Context Debug] Waiting 5 seconds for Browserbase to persist context');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log('[Context Debug] Context ID captured:', capturedContextId);
+      }
+
+      // Save research to cache if we have research text
+      if (researchText && wizardWebsite) {
+        saveResearchToCache(wizardWebsite, researchText, capturedContextId, capturedLoggedInUrl);
+        console.log('Saved research to cache');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to research website');
@@ -536,6 +630,8 @@ export default function Home() {
         requiresLogin,
         loginUsername: requiresLogin ? loginUsername : undefined,
         loginPassword: requiresLogin ? loginPassword : undefined,
+        contextId: wizardContextId || undefined, // Pass context ID if available
+        loggedInUrl: wizardLoggedInUrl || undefined, // Pass logged-in URL if available
       };
 
       const response = await fetch('/api/run-automation', {
@@ -1060,6 +1156,65 @@ export default function Home() {
               }}
             />
 
+            {/* Cached Research Notification */}
+            {hasCachedResearch && (
+              <div style={{
+                marginBottom: '15px',
+                padding: '15px',
+                backgroundColor: '#e0f2fe',
+                border: '2px solid #0284c7',
+                borderRadius: '8px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '15px'
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 'bold', color: '#0369a1', marginBottom: '5px' }}>
+                    Cached Research Available
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#075985' }}>
+                    Last researched: {cachedResearchDate}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={loadCachedResearch}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '14px',
+                      fontWeight: 'bold',
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '5px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Use Cached
+                  </button>
+                  <button
+                    onClick={handleWizardResearch}
+                    disabled={isResearching || !wizardWebsite}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '14px',
+                      fontWeight: 'bold',
+                      backgroundColor: isResearching ? '#ccc' : '#0070f3',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '5px',
+                      cursor: isResearching || !wizardWebsite ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {isResearching ? 'Researching...' : 'Re-research'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Login Options */}
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -1188,6 +1343,8 @@ export default function Home() {
                     minWidth: '100px'
                   }}
                 >
+                  <option value={1}>1 prompt</option>
+                  <option value={2}>2 prompts</option>
                   <option value={3}>3 prompts</option>
                   <option value={5}>5 prompts</option>
                   <option value={10}>10 prompts</option>

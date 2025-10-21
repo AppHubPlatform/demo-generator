@@ -25,6 +25,8 @@ interface RunBrowsingSessionParams {
     requiresLogin?: boolean;
     loginUsername?: string;
     loginPassword?: string;
+    contextId?: string;
+    loggedInUrl?: string;
 }
 
 function getRandomScreenSize(): ConcreteScreenSize {
@@ -78,6 +80,8 @@ export async function runBrowsingSession({
     requiresLogin = false,
     loginUsername,
     loginPassword,
+    contextId,
+    loggedInUrl,
 }: RunBrowsingSessionParams): Promise<any[]> {
     const sessionId = randomUUID();
     let stagehand;
@@ -95,6 +99,17 @@ export async function runBrowsingSession({
             },
             solveCaptchas: true,
         };
+
+        // Add context if provided (for reusing login state)
+        if (contextId) {
+            console.log(`[Context Debug] Using context ID: ${contextId} with persist: false`);
+            browserSettings.context = {
+                id: contextId,
+                persist: false, // Read-only, don't modify the context
+            };
+        } else {
+            console.log('[Context Debug] No context ID provided, starting fresh session');
+        }
 
         // Set OS to mobile for mobile devices (requires Advanced Stealth plan)
         // if (isMobile) {
@@ -160,7 +175,9 @@ export async function runBrowsingSession({
         }
     }
 
-    await page.goto(websiteTarget,  { waitUntil: "domcontentloaded" });
+    // Use loggedInUrl if provided (when reusing context), otherwise use websiteTarget
+    const targetUrl = loggedInUrl || websiteTarget;
+    await page.goto(targetUrl,  { waitUntil: "domcontentloaded" });
 
     const agent = stagehand.agent({
         provider: modelProvider,
@@ -179,17 +196,20 @@ export async function runBrowsingSession({
 
     try {
         const results = [];
+        let logRocketScript: string | null = null;
 
-        // If login is required, execute login first BEFORE starting LogRocket
-        if (requiresLogin && loginUsername && loginPassword) {
+        // If login is required AND no context (need to log in manually)
+        // Skip login if we have a contextId (already logged in via context)
+        if (requiresLogin && loginUsername && loginPassword && !contextId) {
             const loginInstruction = getLoginInstruction(loginUsername, loginPassword);
             const loginResult = await agent.execute(loginInstruction);
             results.push(loginResult);
             console.log('Login completed:', loginResult);
+        } else if (contextId) {
+            console.log('Reusing login context:', contextId);
         }
 
         // NOW inject LogRocket after login (if applicable)
-        let logRocketScript: string | null = null;
         if (enableLogRocket) {
             logRocketScript = generateLogRocketScript(logRocketServer, logRocketAppId);
             await page.evaluate(logRocketScript);
@@ -212,18 +232,19 @@ export async function runBrowsingSession({
             })()`);
         }
 
-        // Re-inject LogRocket script on page load if enabled
-        if (enableLogRocket && logRocketScript) {
-            page.on('load', async () => {
-                await page.evaluate(logRocketScript!);
-            });
-        }
-
         // Execute remaining prompts
         for (const prompt of instructionsPrompts) {
             const result = await agent.execute(prompt);
             results.push(result);
             console.log(result);
+        }
+
+        // Set up page.on('load') listener ONLY AFTER prompts execute
+        // This ensures LogRocket isn't re-injected during login-related page navigations
+        if (enableLogRocket && logRocketScript) {
+            page.on('load', async () => {
+                await page.evaluate(logRocketScript!);
+            });
         }
 
         return results;
@@ -255,9 +276,11 @@ interface RunMultipleSessionsParams {
     requiresLogin?: boolean;
     loginUsername?: string;
     loginPassword?: string;
+    contextId?: string;
+    loggedInUrl?: string;
 }
 
-export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, requiresLogin, loginUsername, loginPassword}: RunMultipleSessionsParams): Promise<any[]> {
+export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, requiresLogin, loginUsername, loginPassword, contextId, loggedInUrl}: RunMultipleSessionsParams): Promise<any[]> {
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < numSessions; i++) {
         const timeoutSeconds = Math.floor(Math.random() * (600 - 120 + 1)) + 120;
@@ -282,6 +305,8 @@ export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarg
             requiresLogin,
             loginUsername,
             loginPassword,
+            contextId,
+            loggedInUrl,
         }))
     }
     return await Promise.all(promises);
@@ -299,9 +324,11 @@ interface MapSessionsToPromptsParams {
     requiresLogin?: boolean;
     loginUsername?: string;
     loginPassword?: string;
+    contextId?: string;
+    loggedInUrl?: string;
 }
 
-export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfInstructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, requiresLogin, loginUsername, loginPassword}: MapSessionsToPromptsParams): Promise<any[]> {
+export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfInstructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, requiresLogin, loginUsername, loginPassword, contextId, loggedInUrl}: MapSessionsToPromptsParams): Promise<any[]> {
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < listOfInstructionsPrompts.length; i++) {
         // If randomize, pick a random screen size for this session
@@ -324,6 +351,8 @@ export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfIn
             requiresLogin,
             loginUsername,
             loginPassword,
+            contextId,
+            loggedInUrl,
         }))
     }
     return await Promise.all(promises);

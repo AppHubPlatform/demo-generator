@@ -69,6 +69,8 @@ Each journey should consist of 3-10 sequential steps that a browser automation a
 Each step should be reasonably concise, with clear instruction (e.g., "Find the credit cards listing on the site and browse 3 types of cards", 
 "Scroll down to view pricing and then over over each type of pricing plan", "Fill out all steps in the contact form with sample information").
 
+Assume the site doesn't require a login, or if it does require a login, the agent is already logged in.
+
 Provide your journeys in this exact format:
 PROMPT_1:
 - [step 1]

@@ -5,6 +5,7 @@ import { Stagehand } from "@browserbasehq/stagehand";
 import { getWebsiteResearchPrompt, getLoginInstruction, BROWSER_AGENT_INSTRUCTIONS } from '@/lib/prompts';
 import { sessionManager } from '@/lib/sessionManager';
 import { randomUUID } from 'crypto';
+import Browserbase from '@browserbasehq/sdk';
 
 const google = createGoogleGenerativeAI({
     apiKey: process.env.GOOGLE_API_KEY || '',
@@ -16,6 +17,8 @@ interface FetchResult {
     browserbaseSessionId?: string;
     debugUrl?: string;
     sessionUrl?: string;
+    contextId?: string;
+    loggedInUrl?: string;
 }
 
 async function fetchWebsiteContent(
@@ -30,6 +33,8 @@ async function fetchWebsiteContent(
     let browserbaseSessionId: string | undefined;
     let debugUrl: string | undefined;
     let sessionUrl: string | undefined;
+    let contextId: string | undefined;
+    let loggedInUrl: string | undefined;
 
     try {
         // Validate URL format
@@ -45,8 +50,41 @@ async function fetchWebsiteContent(
             throw new Error(`Invalid protocol: "${validUrl.protocol}". URL must start with http:// or https://`);
         }
 
+        // Create a context if login is required
+        if (requiresLogin && loginUsername && loginPassword) {
+            statusCallback?.('Creating persistent context for login...');
+            const bb = new Browserbase({
+                apiKey: process.env.BROWSERBASE_API_KEY || '',
+            });
+
+            const context = await bb.contexts.create({
+                projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
+            });
+
+            contextId = context.id;
+            console.log(`Created context: ${contextId}`);
+        }
+
         statusCallback?.('Initializing browser session...');
         console.log(`Fetching ${url} using Browserbase...`);
+
+        // Prepare browser settings
+        const browserSettings: any = {
+            blockAds: false,
+            viewport: {
+                width: 1280,
+                height: 800,
+            },
+            solveCaptchas: true,
+        };
+
+        // Add context if we created one
+        if (contextId) {
+            browserSettings.context = {
+                id: contextId,
+                persist: true, // Save login state for reuse
+            };
+        }
 
         // Use Browserbase to fetch content to bypass bot detection
         stagehand = new Stagehand({
@@ -59,14 +97,7 @@ async function fetchWebsiteContent(
             verbose: 0,
             browserbaseSessionCreateParams: {
                 projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
-                browserSettings: {
-                    blockAds: false,
-                    viewport: {
-                        width: 1280,
-                        height: 800,
-                    },
-                    solveCaptchas: true,
-                },
+                browserSettings,
                 timeout: 300,
                 keepAlive: false,
             }
@@ -109,6 +140,10 @@ async function fetchWebsiteContent(
             // Wait for login to complete and page to load
             statusCallback?.('Login complete, loading page...');
             await page.waitForTimeout(5000);
+
+            // Capture the logged-in URL (may have changed after login)
+            loggedInUrl = page.url();
+            console.log('Logged-in URL:', loggedInUrl);
         }
 
         statusCallback?.('Loading page content...');
@@ -150,6 +185,8 @@ async function fetchWebsiteContent(
             browserbaseSessionId,
             debugUrl,
             sessionUrl,
+            contextId,
+            loggedInUrl,
         };
     } catch (error) {
         console.error('Error fetching website:', error);
@@ -236,6 +273,24 @@ export async function POST(request: NextRequest) {
                             }
                         });
                         controller.enqueue(encoder.encode(`data: ${sessionData}\n\n`));
+                    }
+
+                    // Send context ID if one was created
+                    if (result.contextId) {
+                        const contextData = JSON.stringify({
+                            type: 'context',
+                            contextId: result.contextId,
+                        });
+                        controller.enqueue(encoder.encode(`data: ${contextData}\n\n`));
+                    }
+
+                    // Send logged-in URL if one was captured
+                    if (result.loggedInUrl) {
+                        const urlData = JSON.stringify({
+                            type: 'loggedInUrl',
+                            url: result.loggedInUrl,
+                        });
+                        controller.enqueue(encoder.encode(`data: ${urlData}\n\n`));
                     }
 
                     sendStatus('Analyzing website with AI...');

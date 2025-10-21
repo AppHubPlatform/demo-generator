@@ -19,6 +19,8 @@ interface RequestBody {
     requiresLogin?: boolean;
     loginUsername?: string;
     loginPassword?: string;
+    contextId?: string;
+    loggedInUrl?: string;
 }
 
 function getRandomScreenSize(): ConcreteScreenSize {
@@ -36,7 +38,10 @@ function resolveScreenSize(screenSize?: ScreenSize): ConcreteScreenSize {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json() as RequestBody;
-        const { mode, useCloudEnv, websiteTarget, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, instructionsPrompts, numSessions, listOfInstructionsPrompts, requiresLogin, loginUsername, loginPassword } = body;
+        const { mode, useCloudEnv, websiteTarget, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, instructionsPrompts, numSessions, listOfInstructionsPrompts, requiresLogin, loginUsername, loginPassword, contextId, loggedInUrl } = body;
+
+        console.log(`[Context Debug] run-automation received contextId: ${contextId || 'none'}`);
+        console.log(`[Context Debug] run-automation received loggedInUrl: ${loggedInUrl || 'none'}`);
 
         // Force cloud environment in production
         const deploymentEnv = process.env.DEPLOYMENT_ENV || 'local';
@@ -65,6 +70,8 @@ export async function POST(request: NextRequest) {
                     requiresLogin,
                     loginUsername,
                     loginPassword,
+                    contextId,
+                    loggedInUrl,
                 });
                 break;
 
@@ -88,6 +95,8 @@ export async function POST(request: NextRequest) {
                     requiresLogin,
                     loginUsername,
                     loginPassword,
+                    contextId,
+                    loggedInUrl,
                 });
                 break;
 
@@ -110,6 +119,8 @@ export async function POST(request: NextRequest) {
                     requiresLogin,
                     loginUsername,
                     loginPassword,
+                    contextId,
+                    loggedInUrl,
                 });
                 break;
 
