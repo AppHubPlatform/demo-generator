@@ -42,12 +42,13 @@ I have fetched the content from ${website}. Here is the text content from that w
 
 ${websiteContent}
 
-Based on this actual website content, provide a CONCISE summary (3-4 sentences maximum) covering:
+Based on this actual website content, provide a summary (5-6 sentences maximum) covering:
 1. What the company/site does (main purpose)
 2. Key features or sections users interact with
 3. Common user behaviors/journeys on this type of site
 
-Be brief and focused. No extra explanation needed.`;
+Please also list out the 5-10 most important subpages that you see on the site (ie "/pricing", "/features", "/contact-us", etc).
+`;
 }
 
 /**
@@ -64,12 +65,16 @@ ${research}
 
 Based on this research, generate exactly ${count} realistic user journeys that simulate actual user behavior on this site.
 
-Each journey should consist of 3-10 sequential steps that a browser automation agent will execute. Make the journeys diverse and realistic.
+Each journey should consist of 5-15 sequential steps that a browser automation agent will execute. Make the journeys diverse and realistic.
 
-Each step should be reasonably concise, with clear instruction (e.g., "Find the credit cards listing on the site and browse 3 types of cards", 
+Each step should be reasonably concise, with clear instruction (e.g., "Find the credit cards listing on the site and browse 3 types of cards",
 "Scroll down to view pricing and then over over each type of pricing plan", "Fill out all steps in the contact form with sample information").
 
+IMPORTANT: The browser is already on the website when these instructions are given. DO NOT include steps like "Navigate to [website]" or "Go to the homepage" at the beginning. Start directly with actions the user should take on the page they're already viewing.
+
 Assume the site doesn't require a login, or if it does require a login, the agent is already logged in.
+
+You want the user journey to take roughly 5-10 minutes to complete, so make sure there are enough steps. 
 
 Provide your journeys in this exact format:
 PROMPT_1:

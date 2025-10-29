@@ -213,6 +213,11 @@ export async function runBrowsingSession({
         if (enableLogRocket) {
             logRocketScript = generateLogRocketScript(logRocketServer, logRocketAppId);
             await page.evaluate(logRocketScript);
+
+            // Set up page.on('load') listener IMMEDIATELY to catch navigations during prompts
+            page.on('load', async () => {
+                await page.evaluate(logRocketScript!);
+            });
         }
 
         if (enableLogRocket && Math.random() < 0.5) {
@@ -237,14 +242,6 @@ export async function runBrowsingSession({
             const result = await agent.execute(prompt);
             results.push(result);
             console.log(result);
-        }
-
-        // Set up page.on('load') listener ONLY AFTER prompts execute
-        // This ensures LogRocket isn't re-injected during login-related page navigations
-        if (enableLogRocket && logRocketScript) {
-            page.on('load', async () => {
-                await page.evaluate(logRocketScript!);
-            });
         }
 
         return results;

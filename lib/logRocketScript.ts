@@ -36,6 +36,12 @@ export function generateLogRocketScript(server: LogRocketServer = 'prod', appID:
 (() => {
   console.info('[LogRocket] Activating via load-logrocket.js');
 
+  // Check if we're on google.com - don't record Google pages
+  if (window.location.hostname.includes('google.com')) {
+    console.info('[LogRocket] Skipping initialization on google.com');
+    return;
+  }
+
   // Get parameters from URL query string
   const urlParams = new URLSearchParams(
     document.currentScript ? document.currentScript.src.split('?')[1] : window.location.search
