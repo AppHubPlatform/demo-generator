@@ -52,6 +52,8 @@ export default function Home() {
   const [isGeneratingPrompts, setIsGeneratingPrompts] = useState<boolean>(false);
   const [editingPromptIndex, setEditingPromptIndex] = useState<number | null>(null);
   const [editingPromptText, setEditingPromptText] = useState<string>('');
+  const [isEditingResearch, setIsEditingResearch] = useState<boolean>(false);
+  const [editingResearchText, setEditingResearchText] = useState<string>('');
   const [hasCachedResearch, setHasCachedResearch] = useState<boolean>(false);
   const [cachedResearchDate, setCachedResearchDate] = useState<string>('');
 
@@ -509,11 +511,12 @@ export default function Home() {
       // Wait for Browserbase to fully persist the context
       // Browserbase docs: "After a session using a context with persist: true,
       // there will be a brief delay before the updated context state is ready for use"
+      // The backend already waited 3 seconds after closing, now wait an additional 5 seconds
       if (capturedContextId) {
         setResearchStatus('Waiting for context to sync...');
-        console.log('[Context Debug] Waiting 5 seconds for Browserbase to persist context');
+        console.log('[Context Debug] Waiting additional 5 seconds for Browserbase context to be ready for reuse');
         await new Promise(resolve => setTimeout(resolve, 5000));
-        console.log('[Context Debug] Context ID captured:', capturedContextId);
+        console.log('[Context Debug] Context should now be ready. Context ID:', capturedContextId);
       }
 
       // Save research to cache if we have research text
@@ -606,6 +609,22 @@ export default function Home() {
     setEditingPromptText('');
   };
 
+  const handleEditResearch = () => {
+    setIsEditingResearch(true);
+    setEditingResearchText(wizardResearch);
+  };
+
+  const handleSaveResearch = () => {
+    setWizardResearch(editingResearchText);
+    setIsEditingResearch(false);
+    setEditingResearchText('');
+  };
+
+  const handleCancelEditResearch = () => {
+    setIsEditingResearch(false);
+    setEditingResearchText('');
+  };
+
   const handleRunWizard = async () => {
     setIsLoading(true);
     setResults(null);
@@ -620,7 +639,7 @@ export default function Home() {
 
       const payload = {
         mode: 'mapped' as Mode,
-        useCloudEnv: true, // Wizard always uses Browserbase Cloud
+        useCloudEnv: useCloudEnv,
         websiteTarget: wizardWebsite,
         listOfInstructionsPrompts,
         enableLogRocket,
@@ -1122,6 +1141,36 @@ export default function Home() {
             AI will research your website and generate realistic user behavior prompts
           </p>
 
+          {/* Browser Environment Toggle */}
+          {!isProduction && (
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                Browser Environment
+              </label>
+              <select
+                value={useCloudEnv ? 'cloud' : 'local'}
+                onChange={(e) => setUseCloudEnv(e.target.value === 'cloud')}
+                style={{ width: '100%', padding: '10px', fontSize: '14px', borderRadius: '5px', border: '1px solid #ccc' }}
+              >
+                <option value="cloud">Browserbase Cloud</option>
+                <option value="local">Local Browser</option>
+              </select>
+            </div>
+          )}
+          {isProduction && (
+            <div style={{
+              padding: '10px',
+              backgroundColor: '#e3f2fd',
+              border: '1px solid #2196f3',
+              borderRadius: '5px',
+              fontSize: '14px',
+              color: '#1565c0',
+              marginBottom: '20px'
+            }}>
+              <strong>Production Mode:</strong> Using cloud environment (Browserbase)
+            </div>
+          )}
+
           {/* Error Display */}
           {error && (
             <div style={{
@@ -1306,15 +1355,90 @@ export default function Home() {
               border: '1px solid #ddd',
               textAlign: 'left'
             }}>
-              <h3 style={{ marginTop: 0, marginBottom: '10px', color: '#0070f3' }}>Research Summary</h3>
-              <div style={{
-                whiteSpace: 'pre-wrap',
-                fontSize: '14px',
-                lineHeight: '1.6',
-                color: '#333'
-              }}>
-                {wizardResearch}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h3 style={{ margin: 0, color: '#0070f3' }}>Research Summary</h3>
+                {!isEditingResearch && (
+                  <button
+                    onClick={handleEditResearch}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      backgroundColor: '#f3f4f6',
+                      color: '#374151',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title="Edit research"
+                  >
+                    ✏️ Edit
+                  </button>
+                )}
               </div>
+              {isEditingResearch ? (
+                // Edit mode
+                <div>
+                  <textarea
+                    value={editingResearchText}
+                    onChange={(e) => setEditingResearchText(e.target.value)}
+                    style={{
+                      width: '100%',
+                      minHeight: '150px',
+                      padding: '12px',
+                      fontSize: '14px',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      fontFamily: 'inherit',
+                      marginBottom: '10px',
+                      lineHeight: '1.6'
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={handleSaveResearch}
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '14px',
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancelEditResearch}
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '14px',
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // View mode
+                <div style={{
+                  whiteSpace: 'pre-wrap',
+                  fontSize: '14px',
+                  lineHeight: '1.6',
+                  color: '#333'
+                }}>
+                  {wizardResearch}
+                </div>
+              )}
             </div>
           )}
 

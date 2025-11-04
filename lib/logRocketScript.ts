@@ -74,6 +74,7 @@ export function generateLogRocketScript(server: LogRocketServer = 'prod', appID:
       // Build LogRocket options
       const opts = {
         uploadTimeInterval: 3000,
+        lowPrecisionPlayback: true,
         dom: {
           assetCapture: {
             isDisabled: false,

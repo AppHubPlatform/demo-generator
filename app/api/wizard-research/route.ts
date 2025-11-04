@@ -124,6 +124,7 @@ async function fetchWebsiteContent(
         // If login is required, perform login before extracting content
         if (requiresLogin && loginUsername && loginPassword) {
             statusCallback?.('Logging in...');
+            console.log(`[Context Debug] Performing login with context ID: ${contextId}, persist: true`);
 
             const agent = stagehand.agent({
                 provider: 'anthropic',
@@ -143,7 +144,8 @@ async function fetchWebsiteContent(
 
             // Capture the logged-in URL (may have changed after login)
             loggedInUrl = page.url();
-            console.log('Logged-in URL:', loggedInUrl);
+            console.log('[Context Debug] Login completed. Logged-in URL:', loggedInUrl);
+            console.log('[Context Debug] Context state should be saved when this session closes');
         }
 
         statusCallback?.('Loading page content...');
@@ -217,9 +219,23 @@ async function fetchWebsiteContent(
         // Clean up browser session
         if (stagehand) {
             try {
-                // Only close if context exists (means init was successful)
+                // Close the entire browser (not just context) to ensure proper session termination
                 if (stagehand.context) {
-                    await stagehand.context.close();
+                    // First close the browser to trigger Browserbase session end
+                    const browser = stagehand.context.browser();
+                    if (browser) {
+                        await browser.close();
+                    } else {
+                        // Fallback to closing just the context if browser isn't available
+                        await stagehand.context.close();
+                    }
+
+                    // Give Browserbase time to save the context after session ends
+                    // This is critical for context persistence
+                    if (requiresLogin && contextId) {
+                        console.log('[Context Debug] Waiting 3 seconds for Browserbase to save context state...');
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                    }
                 }
             } catch (e) {
                 // Ignore cleanup errors

@@ -102,13 +102,14 @@ export async function runBrowsingSession({
 
         // Add context if provided (for reusing login state)
         if (contextId) {
-            console.log(`[Context Debug] Using context ID: ${contextId} with persist: false`);
+            console.log(`[Context Debug] Using context ID: ${contextId} with persist: false (read-only mode)`);
+            console.log(`[Context Debug] This session should reuse the login state from the research session`);
             browserSettings.context = {
                 id: contextId,
                 persist: false, // Read-only, don't modify the context
             };
         } else {
-            console.log('[Context Debug] No context ID provided, starting fresh session');
+            console.log('[Context Debug] No context ID provided, starting fresh session without login context');
         }
 
         // Set OS to mobile for mobile devices (requires Advanced Stealth plan)
@@ -190,7 +191,9 @@ export async function runBrowsingSession({
         // verbose: true,
 
         options: {
-            apiKey: process.env.GOOGLE_API_KEY,
+            apiKey: modelProvider === 'google'
+                ? process.env.GOOGLE_API_KEY
+                : process.env.ANTHROPIC_API_KEY,
         },
     });
 
