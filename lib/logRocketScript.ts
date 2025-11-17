@@ -28,7 +28,7 @@ function getLogRocketConfig(server: LogRocketServer): LogRocketConfig {
   }
 }
 
-export function generateLogRocketScript(server: LogRocketServer = 'prod', appID: string = 'public-shares/credit-karma'): string {
+export function generateLogRocketScript(server: LogRocketServer = 'prod', appID: string = 'public-shares/credit-karma', sanitizeAll: boolean = false): string {
   const config = getLogRocketConfig(server);
 
   return `
@@ -55,7 +55,7 @@ export function generateLogRocketScript(server: LogRocketServer = 'prod', appID:
   const appID = urlParams.get('appID') || '${appID}';
   const shouldAutoIdentify = urlParams.get('autoIdentify') === 'false';
   const shouldAutoSanitizeInput = urlParams.get('autoSanitizeInput') === 'true';
-  const shouldAutoSanitizeText = urlParams.get('autoSanitizeText') === 'true';
+  const shouldAutoSanitizeText = ${sanitizeAll};
   const shouldAutoRedux = urlParams.get('autoRedux') === 'true';
 
   const headElement = document.head || document.documentElement;
@@ -100,6 +100,8 @@ export function generateLogRocketScript(server: LogRocketServer = 'prod', appID:
       // Add text sanitization if enabled
       if (shouldAutoSanitizeText) {
         opts.dom.textSanitizer = true;
+        // Also sanitize inputs
+        opts.dom.inputSanitizer = true;
       }
 
 

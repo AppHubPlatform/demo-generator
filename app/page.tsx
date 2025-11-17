@@ -16,6 +16,7 @@ export default function Home() {
   const [enableLogRocket, setEnableLogRocket] = useState<boolean>(true);
   const [logRocketServer, setLogRocketServer] = useState<LogRocketServer>('prod');
   const [logRocketAppId, setLogRocketAppId] = useState<string>('');
+  const [logRocketSanitizeAll, setLogRocketSanitizeAll] = useState<boolean>(false);
   const [screenSize, setScreenSize] = useState<ScreenSize>('randomize');
   const [modelProvider, setModelProvider] = useState<'anthropic' | 'google'>('anthropic');
   const [websiteTarget, setWebsiteTarget] = useState<string>('https://creditkarma.com');
@@ -155,6 +156,7 @@ export default function Home() {
         enableLogRocket: localStorage.getItem('enableLogRocket'),
         logRocketServer: localStorage.getItem('logRocketServer') as LogRocketServer | null,
         logRocketAppId: localStorage.getItem('logRocketAppId'),
+        logRocketSanitizeAll: localStorage.getItem('logRocketSanitizeAll'),
         screenSize: localStorage.getItem('screenSize') as ScreenSize | null,
         modelProvider: localStorage.getItem('modelProvider') as 'anthropic' | 'google' | null,
         websiteTarget: localStorage.getItem('websiteTarget'),
@@ -173,6 +175,7 @@ export default function Home() {
       if (saved.enableLogRocket !== null) setEnableLogRocket(saved.enableLogRocket === 'true');
       if (saved.logRocketServer) setLogRocketServer(saved.logRocketServer);
       if (saved.logRocketAppId) setLogRocketAppId(saved.logRocketAppId);
+      if (saved.logRocketSanitizeAll !== null) setLogRocketSanitizeAll(saved.logRocketSanitizeAll === 'true');
       if (saved.screenSize) setScreenSize(saved.screenSize);
       if (saved.modelProvider) setModelProvider(saved.modelProvider);
       if (saved.websiteTarget) setWebsiteTarget(saved.websiteTarget);
@@ -222,6 +225,12 @@ export default function Home() {
       localStorage.setItem('logRocketAppId', logRocketAppId);
     }
   }, [logRocketAppId]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('logRocketSanitizeAll', logRocketSanitizeAll.toString());
+    }
+  }, [logRocketSanitizeAll]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -307,6 +316,7 @@ export default function Home() {
         enableLogRocket,
         logRocketServer,
         logRocketAppId,
+        logRocketSanitizeAll,
         screenSize,
         modelProvider,
         requiresLogin,
@@ -629,31 +639,27 @@ export default function Home() {
     setIsLoading(true);
     setResults(null);
     setError(null);
+    setResearchStatus(''); // Reuse research status for progress updates
 
     try {
-      // Run mapped sessions - one session per prompt
-      // Each prompt contains multiple steps separated by newlines
+      // Prepare prompts - each prompt contains multiple steps
       const listOfInstructionsPrompts = wizardPrompts.map(prompt =>
         prompt.split('\n').filter(step => step.trim())
       );
 
       const payload = {
-        mode: 'mapped' as Mode,
-        useCloudEnv: useCloudEnv,
         websiteTarget: wizardWebsite,
         listOfInstructionsPrompts,
         enableLogRocket,
         logRocketServer,
         logRocketAppId,
-        screenSize,
+        logRocketSanitizeAll,
         requiresLogin,
         loginUsername: requiresLogin ? loginUsername : undefined,
         loginPassword: requiresLogin ? loginPassword : undefined,
-        contextId: wizardContextId || undefined, // Pass context ID if available
-        loggedInUrl: wizardLoggedInUrl || undefined, // Pass logged-in URL if available
       };
 
-      const response = await fetch('/api/run-automation', {
+      const response = await fetch('/api/wizard-run-sequential', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -661,17 +667,60 @@ export default function Home() {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to run automation');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to run wizard');
       }
 
-      setResults(data.results);
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      const logRocketSessions: string[] = [];
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(data);
+
+                if (parsed.type === 'status') {
+                  setResearchStatus(parsed.content);
+                } else if (parsed.type === 'session') {
+                  // Session is managed by sessionManager on backend
+                  // fetchSessionCount will pick it up automatically within 2 seconds
+                  console.log('[Wizard] Session started:', parsed.session.browserbaseSessionId);
+                } else if (parsed.type === 'logrocket_session') {
+                  logRocketSessions.push(`Prompt ${parsed.promptIndex + 1}: ${parsed.sessionUrl}`);
+                } else if (parsed.type === 'complete') {
+                  setResults({
+                    success: true,
+                    message: `Successfully completed ${parsed.totalPrompts} prompts sequentially`,
+                    logRocketSessions,
+                  });
+                } else if (parsed.type === 'error') {
+                  throw new Error(parsed.message);
+                }
+              } catch (e) {
+                // Skip invalid JSON
+              }
+            }
+          }
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
+      setResearchStatus('');
     }
   };
 
@@ -1017,6 +1066,19 @@ export default function Home() {
                 style={{ cursor: 'pointer' }}
               />
               <span style={{ fontWeight: 'bold' }}>Record in LogRocket</span>
+            </label>
+          </div>
+
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: enableLogRocket ? 'pointer' : 'not-allowed' }}>
+              <input
+                type="checkbox"
+                checked={logRocketSanitizeAll}
+                onChange={(e) => setLogRocketSanitizeAll(e.target.checked)}
+                disabled={!enableLogRocket}
+                style={{ cursor: enableLogRocket ? 'pointer' : 'not-allowed' }}
+              />
+              <span style={{ fontWeight: 'normal', color: enableLogRocket ? 'inherit' : '#999' }}>Sanitize All Text</span>
             </label>
           </div>
 
@@ -1603,6 +1665,26 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Status Display During Execution */}
+              {isLoading && researchStatus && (
+                <div style={{
+                  marginBottom: '20px',
+                  padding: '15px',
+                  backgroundColor: '#fff3cd',
+                  borderRadius: '8px',
+                  border: '1px solid #ffc107',
+                  textAlign: 'center'
+                }}>
+                  <div style={{
+                    fontSize: '14px',
+                    color: '#856404',
+                    fontWeight: 'bold'
+                  }}>
+                    {researchStatus}
+                  </div>
+                </div>
+              )}
+
               {/* Settings & Run */}
               <div style={{ display: 'flex', gap: '20px' }}>
                 {/* Left Column - Screen Size */}
@@ -1643,7 +1725,7 @@ export default function Home() {
                         width: '100%'
                       }}
                     >
-                      {isLoading ? 'Running Sessions...' : 'Run Sessions'}
+                      {isLoading ? 'Running Prompts...' : 'Run Sequential Sessions'}
                     </button>
                   </div>
                 </div>
@@ -1667,6 +1749,19 @@ export default function Home() {
                           style={{ cursor: 'pointer' }}
                         />
                         <span style={{ fontWeight: 'bold' }}>Record in LogRocket</span>
+                      </label>
+                    </div>
+
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: enableLogRocket ? 'pointer' : 'not-allowed' }}>
+                        <input
+                          type="checkbox"
+                          checked={logRocketSanitizeAll}
+                          onChange={(e) => setLogRocketSanitizeAll(e.target.checked)}
+                          disabled={!enableLogRocket}
+                          style={{ cursor: enableLogRocket ? 'pointer' : 'not-allowed' }}
+                        />
+                        <span style={{ fontWeight: 'normal', color: enableLogRocket ? 'inherit' : '#999' }}>Sanitize All Text</span>
                       </label>
                     </div>
 
@@ -1743,6 +1838,50 @@ export default function Home() {
                 </div>
               </div>
             </>
+          )}
+
+          {/* Results Display */}
+          {results && usageMode === 'wizard' && (
+            <div style={{
+              marginTop: '20px',
+              padding: '20px',
+              backgroundColor: '#d1fae5',
+              border: '2px solid #10b981',
+              borderRadius: '8px',
+            }}>
+              <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#047857' }}>
+                ✓ Execution Complete
+              </h3>
+              <div style={{ marginBottom: '15px', fontSize: '14px', color: '#065f46' }}>
+                {results.message}
+              </div>
+              {results.logRocketSessions && results.logRocketSessions.length > 0 && (
+                <div>
+                  <h4 style={{ marginTop: 0, marginBottom: '10px', color: '#047857' }}>LogRocket Sessions:</h4>
+                  <ul style={{ marginTop: 0, paddingLeft: '20px' }}>
+                    {results.logRocketSessions.map((sessionInfo: string, index: number) => {
+                      // Parse "Prompt X: URL" format
+                      const parts = sessionInfo.split(': ');
+                      const label = parts[0];
+                      const url = parts[1];
+                      return (
+                        <li key={index} style={{ marginBottom: '8px' }}>
+                          <strong>{label}:</strong>{' '}
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: '#0070f3', textDecoration: 'underline' }}
+                          >
+                            {url}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

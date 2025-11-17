@@ -17,6 +17,7 @@ interface RunBrowsingSessionParams {
     enableLogRocket?: boolean;
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
+    logRocketSanitizeAll?: boolean;
     screenSize?: ConcreteScreenSize;
     modelProvider?: 'anthropic' | 'google';
     timeoutSeconds?: number;
@@ -72,6 +73,7 @@ export async function runBrowsingSession({
     enableLogRocket = true,
     logRocketServer = 'prod',
     logRocketAppId = 'public-shares/credit-karma',
+    logRocketSanitizeAll = false,
     screenSize = 'desktop-medium',
     modelProvider = 'anthropic',
     timeoutSeconds = 600,
@@ -214,7 +216,7 @@ export async function runBrowsingSession({
 
         // NOW inject LogRocket after login (if applicable)
         if (enableLogRocket) {
-            logRocketScript = generateLogRocketScript(logRocketServer, logRocketAppId);
+            logRocketScript = generateLogRocketScript(logRocketServer, logRocketAppId, logRocketSanitizeAll);
             await page.evaluate(logRocketScript);
 
             // Set up page.on('load') listener IMMEDIATELY to catch navigations during prompts
@@ -223,7 +225,7 @@ export async function runBrowsingSession({
             });
         }
 
-        if (enableLogRocket && Math.random() < 0.5) {
+        if (enableLogRocket && Math.random() < 0.8) {
             const fakeName = faker.person.fullName();
             const fakeID = faker.string.uuid();
 
@@ -271,6 +273,7 @@ interface RunMultipleSessionsParams {
     enableLogRocket?: boolean;
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
+    logRocketSanitizeAll?: boolean;
     screenSize?: ScreenSize;
     modelProvider?: 'anthropic' | 'google';
     requiresLogin?: boolean;
@@ -280,7 +283,7 @@ interface RunMultipleSessionsParams {
     loggedInUrl?: string;
 }
 
-export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, requiresLogin, loginUsername, loginPassword, contextId, loggedInUrl}: RunMultipleSessionsParams): Promise<any[]> {
+export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarget, instructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, logRocketSanitizeAll, screenSize, modelProvider, requiresLogin, loginUsername, loginPassword, contextId, loggedInUrl}: RunMultipleSessionsParams): Promise<any[]> {
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < numSessions; i++) {
         const timeoutSeconds = Math.floor(Math.random() * (600 - 120 + 1)) + 120;
@@ -299,6 +302,7 @@ export async function runMultipleSessions({numSessions, useCloudEnv, websiteTarg
             enableLogRocket,
             logRocketServer,
             logRocketAppId,
+            logRocketSanitizeAll,
             screenSize: concreteScreenSize,
             modelProvider,
             timeoutSeconds,
@@ -319,6 +323,7 @@ interface MapSessionsToPromptsParams {
     enableLogRocket?: boolean;
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
+    logRocketSanitizeAll?: boolean;
     screenSize?: ScreenSize;
     modelProvider?: 'anthropic' | 'google';
     requiresLogin?: boolean;
@@ -328,7 +333,7 @@ interface MapSessionsToPromptsParams {
     loggedInUrl?: string;
 }
 
-export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfInstructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, requiresLogin, loginUsername, loginPassword, contextId, loggedInUrl}: MapSessionsToPromptsParams): Promise<any[]> {
+export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfInstructionsPrompts, enableLogRocket, logRocketServer, logRocketAppId, logRocketSanitizeAll, screenSize, modelProvider, requiresLogin, loginUsername, loginPassword, contextId, loggedInUrl}: MapSessionsToPromptsParams): Promise<any[]> {
     const promises: Promise<any[]>[] = [];
     for (let i = 0; i < listOfInstructionsPrompts.length; i++) {
         // If randomize, pick a random screen size for this session
@@ -345,6 +350,7 @@ export async function mapSessionsToPrompts({useCloudEnv, websiteTarget, listOfIn
             enableLogRocket,
             logRocketServer,
             logRocketAppId,
+            logRocketSanitizeAll,
             screenSize: concreteScreenSize,
             modelProvider,
             promptLabel: `Prompt ${i + 1}`,

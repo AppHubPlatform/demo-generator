@@ -11,6 +11,7 @@ interface RequestBody {
     enableLogRocket?: boolean;
     logRocketServer?: 'demo' | 'staging' | 'prod';
     logRocketAppId?: string;
+    logRocketSanitizeAll?: boolean;
     screenSize?: ScreenSize;
     modelProvider?: 'anthropic' | 'google';
     instructionsPrompts?: string[];
@@ -38,7 +39,7 @@ function resolveScreenSize(screenSize?: ScreenSize): ConcreteScreenSize {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json() as RequestBody;
-        const { mode, useCloudEnv, websiteTarget, enableLogRocket, logRocketServer, logRocketAppId, screenSize, modelProvider, instructionsPrompts, numSessions, listOfInstructionsPrompts, requiresLogin, loginUsername, loginPassword, contextId, loggedInUrl } = body;
+        const { mode, useCloudEnv, websiteTarget, enableLogRocket, logRocketServer, logRocketAppId, logRocketSanitizeAll, screenSize, modelProvider, instructionsPrompts, numSessions, listOfInstructionsPrompts, requiresLogin, loginUsername, loginPassword, contextId, loggedInUrl } = body;
 
         console.log(`[Context Debug] run-automation received contextId: ${contextId || 'none'}`);
         console.log(`[Context Debug] run-automation received loggedInUrl: ${loggedInUrl || 'none'}`);
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
                     enableLogRocket: enableLogRocket !== false,
                     logRocketServer: logRocketServer || 'prod',
                     logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
+                    logRocketSanitizeAll: logRocketSanitizeAll || false,
                     screenSize: resolveScreenSize(screenSize),
                     modelProvider: modelProvider || 'anthropic',
                     requiresLogin,
@@ -90,6 +92,7 @@ export async function POST(request: NextRequest) {
                     enableLogRocket: enableLogRocket !== false,
                     logRocketServer: logRocketServer || 'prod',
                     logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
+                    logRocketSanitizeAll: logRocketSanitizeAll || false,
                     screenSize: screenSize || 'desktop-medium',
                     modelProvider: modelProvider || 'anthropic',
                     requiresLogin,
@@ -114,6 +117,7 @@ export async function POST(request: NextRequest) {
                     enableLogRocket: enableLogRocket !== false,
                     logRocketServer: logRocketServer || 'prod',
                     logRocketAppId: logRocketAppId || 'public-shares/credit-karma',
+                    logRocketSanitizeAll: logRocketSanitizeAll || false,
                     screenSize: screenSize || 'desktop-medium',
                     modelProvider: modelProvider || 'anthropic',
                     requiresLogin,
