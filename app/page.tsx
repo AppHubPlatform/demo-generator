@@ -648,75 +648,111 @@ export default function Home() {
         prompt.split('\n').filter(step => step.trim())
       );
 
-      const payload = {
-        websiteTarget: wizardWebsite,
-        listOfInstructionsPrompts,
-        useCloudEnv,
-        enableLogRocket,
-        logRocketServer,
-        logRocketAppId,
-        logRocketSanitizeAll,
-        requiresLogin,
-        loginUsername: requiresLogin ? loginUsername : undefined,
-        loginPassword: requiresLogin ? loginPassword : undefined,
-      };
+      // If login is required, run sequentially to maintain session state
+      // Otherwise, run in parallel for better performance
+      if (requiresLogin) {
+        const payload = {
+          websiteTarget: wizardWebsite,
+          listOfInstructionsPrompts,
+          useCloudEnv,
+          enableLogRocket,
+          logRocketServer,
+          logRocketAppId,
+          logRocketSanitizeAll,
+          requiresLogin,
+          loginUsername,
+          loginPassword,
+        };
 
-      const response = await fetch('/api/wizard-run-sequential', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+        const response = await fetch('/api/wizard-run-sequential', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to run wizard');
-      }
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to run wizard');
+        }
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      const logRocketSessions: string[] = [];
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        const logRocketSessions: string[] = [];
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') continue;
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
 
-              try {
-                const parsed = JSON.parse(data);
+                try {
+                  const parsed = JSON.parse(data);
 
-                if (parsed.type === 'status') {
-                  setResearchStatus(parsed.content);
-                } else if (parsed.type === 'session') {
-                  // Session is managed by sessionManager on backend
-                  // fetchSessionCount will pick it up automatically within 2 seconds
-                  console.log('[Wizard] Session started:', parsed.session.browserbaseSessionId);
-                } else if (parsed.type === 'logrocket_session') {
-                  logRocketSessions.push(`Prompt ${parsed.promptIndex + 1}: ${parsed.sessionUrl}`);
-                } else if (parsed.type === 'complete') {
-                  setResults({
-                    success: true,
-                    message: `Successfully completed ${parsed.totalPrompts} prompts sequentially`,
-                    logRocketSessions,
-                  });
-                } else if (parsed.type === 'error') {
-                  throw new Error(parsed.message);
+                  if (parsed.type === 'status') {
+                    setResearchStatus(parsed.content);
+                  } else if (parsed.type === 'session') {
+                    // Session is managed by sessionManager on backend
+                    // fetchSessionCount will pick it up automatically within 2 seconds
+                    console.log('[Wizard] Session started:', parsed.session.browserbaseSessionId);
+                  } else if (parsed.type === 'logrocket_session') {
+                    logRocketSessions.push(`Prompt ${parsed.promptIndex + 1}: ${parsed.sessionUrl}`);
+                  } else if (parsed.type === 'complete') {
+                    setResults({
+                      success: true,
+                      message: `Successfully completed ${parsed.totalPrompts} prompts sequentially`,
+                      logRocketSessions,
+                    });
+                  } else if (parsed.type === 'error') {
+                    throw new Error(parsed.message);
+                  }
+                } catch (e) {
+                  // Skip invalid JSON
                 }
-              } catch (e) {
-                // Skip invalid JSON
               }
             }
           }
         }
+      } else {
+        // No login required - run sessions in parallel for speed
+        setResearchStatus('Starting parallel sessions...');
+
+        const payload = {
+          mode: 'mapped',
+          websiteTarget: wizardWebsite,
+          listOfInstructionsPrompts,
+          useCloudEnv,
+          enableLogRocket,
+          logRocketServer,
+          logRocketAppId,
+          logRocketSanitizeAll,
+          screenSize,
+          modelProvider,
+        };
+
+        const response = await fetch('/api/run-automation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to run wizard');
+        }
+
+        setResults(data.results);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -1712,6 +1748,28 @@ export default function Home() {
                       <option value="iphone-plus">iPhone Plus (430×932)</option>
                     </select>
 
+                    {/* Execution mode info */}
+                    <div style={{
+                      padding: '10px',
+                      backgroundColor: requiresLogin ? '#fff3cd' : '#d1ecf1',
+                      border: `1px solid ${requiresLogin ? '#ffc107' : '#17a2b8'}`,
+                      borderRadius: '5px',
+                      fontSize: '13px',
+                      color: requiresLogin ? '#856404' : '#0c5460',
+                      marginBottom: '15px',
+                      lineHeight: '1.5'
+                    }}>
+                      {requiresLogin ? (
+                        <>
+                          <strong>Sequential execution:</strong> Prompts will run one after another in the same browser session to maintain login state.
+                        </>
+                      ) : (
+                        <>
+                          <strong>Parallel execution:</strong> All prompts will run simultaneously in separate sessions for faster completion.
+                        </>
+                      )}
+                    </div>
+
                     <button
                       onClick={handleRunWizard}
                       disabled={isLoading}
@@ -1727,7 +1785,7 @@ export default function Home() {
                         width: '100%'
                       }}
                     >
-                      {isLoading ? 'Running Prompts...' : 'Run Sequential Sessions'}
+                      {isLoading ? 'Running Prompts...' : (requiresLogin ? 'Run Sequential Sessions' : 'Run Parallel Sessions')}
                     </button>
                   </div>
                 </div>
