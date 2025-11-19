@@ -444,6 +444,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           website: wizardWebsite,
+          useCloudEnv,
           requiresLogin,
           loginUsername: requiresLogin ? loginUsername : undefined,
           loginPassword: requiresLogin ? loginPassword : undefined,
@@ -650,6 +651,7 @@ export default function Home() {
       const payload = {
         websiteTarget: wizardWebsite,
         listOfInstructionsPrompts,
+        useCloudEnv,
         enableLogRocket,
         logRocketServer,
         logRocketAppId,

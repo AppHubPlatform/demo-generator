@@ -24,6 +24,7 @@ interface FetchResult {
 async function fetchWebsiteContent(
     url: string,
     statusCallback?: (status: string) => void,
+    useCloudEnv: boolean = true,
     requiresLogin?: boolean,
     loginUsername?: string,
     loginPassword?: string
@@ -50,8 +51,8 @@ async function fetchWebsiteContent(
             throw new Error(`Invalid protocol: "${validUrl.protocol}". URL must start with http:// or https://`);
         }
 
-        // Create a context if login is required
-        if (requiresLogin && loginUsername && loginPassword) {
+        // Create a context if login is required and using cloud environment
+        if (useCloudEnv && requiresLogin && loginUsername && loginPassword) {
             statusCallback?.('Creating persistent context for login...');
             const bb = new Browserbase({
                 apiKey: process.env.BROWSERBASE_API_KEY || '',
@@ -66,55 +67,73 @@ async function fetchWebsiteContent(
         }
 
         statusCallback?.('Initializing browser session...');
-        console.log(`Fetching ${url} using Browserbase...`);
+        console.log(`Fetching ${url} using ${useCloudEnv ? 'Browserbase' : 'local browser'}...`);
 
-        // Prepare browser settings
-        const browserSettings: any = {
-            blockAds: false,
-            viewport: {
-                width: 1280,
-                height: 800,
-            },
-            solveCaptchas: true,
-        };
-
-        // Add context if we created one
-        if (contextId) {
-            browserSettings.context = {
-                id: contextId,
-                persist: true, // Save login state for reuse
+        if (useCloudEnv) {
+            // Prepare browser settings for cloud
+            const browserSettings: any = {
+                blockAds: false,
+                viewport: {
+                    width: 1280,
+                    height: 800,
+                },
+                solveCaptchas: true,
             };
-        }
 
-        // Use Browserbase to fetch content to bypass bot detection
-        stagehand = new Stagehand({
-            apiKey: process.env.BROWSERBASE_API_KEY,
-            projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
-            env: "BROWSERBASE",
-            disablePino: true,
-            modelClientOptions: { apiKey: process.env.GOOGLE_API_KEY },
-            logInferenceToFile: false,
-            verbose: 0,
-            browserbaseSessionCreateParams: {
-                projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
-                browserSettings,
-                timeout: 300,
-                keepAlive: false,
+            // Add context if we created one
+            if (contextId) {
+                browserSettings.context = {
+                    id: contextId,
+                    persist: true, // Save login state for reuse
+                };
             }
-        });
+
+            // Use Browserbase to fetch content to bypass bot detection
+            stagehand = new Stagehand({
+                apiKey: process.env.BROWSERBASE_API_KEY,
+                projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
+                env: "BROWSERBASE",
+                disablePino: true,
+                modelClientOptions: { apiKey: process.env.GOOGLE_API_KEY },
+                logInferenceToFile: false,
+                verbose: 0,
+                browserbaseSessionCreateParams: {
+                    projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
+                    browserSettings,
+                    timeout: 300,
+                    keepAlive: false,
+                }
+            });
+        } else {
+            // Use local browser
+            stagehand = new Stagehand({
+                env: 'LOCAL',
+                disablePino: true,
+                modelClientOptions: { apiKey: process.env.GOOGLE_API_KEY },
+                localBrowserLaunchOptions: {
+                    headless: false,
+                    viewport: {
+                        width: 1280,
+                        height: 800,
+                    },
+                }
+            });
+        }
 
         statusCallback?.('Starting browser...');
         const initResult = await stagehand.init();
         const page = stagehand.page;
 
-        // Extract session info from Browserbase
-        browserbaseSessionId = initResult.sessionId;
-        debugUrl = initResult.debugUrl;
-        sessionUrl = initResult.sessionUrl;
+        // Extract session info from Browserbase (only for cloud)
+        if (useCloudEnv) {
+            browserbaseSessionId = initResult.sessionId;
+            debugUrl = initResult.debugUrl;
+            sessionUrl = initResult.sessionUrl;
 
-        // If login is required, add session to manager so it can be displayed
-        if (requiresLogin) {
-            sessionManager.addSession(sessionId, stagehand, browserbaseSessionId, debugUrl, sessionUrl, 'Research Session', url);
+            // If login is required, add session to manager so it can be displayed
+            if (requiresLogin) {
+                sessionManager.addSession(sessionId, stagehand, browserbaseSessionId, debugUrl, sessionUrl, 'Research Session', url);
+            }
         }
 
         statusCallback?.(`Navigating to ${url}...`);
@@ -211,8 +230,8 @@ async function fetchWebsiteContent(
         }
         throw new Error(`Failed to fetch website: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-        // Remove from session manager if it was added
-        if (requiresLogin) {
+        // Remove from session manager if it was added (only for cloud sessions with login)
+        if (useCloudEnv && requiresLogin) {
             sessionManager.removeSession(sessionId);
         }
 
@@ -250,7 +269,7 @@ async function fetchWebsiteContent(
 
 export async function POST(request: NextRequest) {
     try {
-        const { website, requiresLogin, loginUsername, loginPassword } = await request.json();
+        const { website, useCloudEnv = true, requiresLogin, loginUsername, loginPassword } = await request.json();
 
         if (!website) {
             return new Response('Website URL is required', { status: 400 });
@@ -272,6 +291,7 @@ export async function POST(request: NextRequest) {
                     const result = await fetchWebsiteContent(
                         website,
                         sendStatus,
+                        useCloudEnv,
                         requiresLogin,
                         loginUsername,
                         loginPassword

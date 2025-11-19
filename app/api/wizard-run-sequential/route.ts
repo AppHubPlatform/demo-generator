@@ -12,6 +12,7 @@ type LogRocketServer = 'demo' | 'staging' | 'prod';
 interface SequentialWizardParams {
     websiteTarget: string;
     listOfInstructionsPrompts: string[][];
+    useCloudEnv?: boolean;
     enableLogRocket?: boolean;
     logRocketServer?: LogRocketServer;
     logRocketAppId?: string;
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
         const {
             websiteTarget,
             listOfInstructionsPrompts,
+            useCloudEnv = true,
             enableLogRocket = true,
             logRocketServer = 'prod',
             logRocketAppId = '',
@@ -54,61 +56,79 @@ export async function POST(request: NextRequest) {
 
                     sendStatus('Initializing browser session...');
 
-                    // Initialize Stagehand with keepAlive for long-running session
-                    const browserSettings: any = {
-                        blockAds: false,
-                        viewport: {
-                            width: 1280,
-                            height: 800,
-                        },
-                        solveCaptchas: true,
-                    };
+                    if (useCloudEnv) {
+                        // Initialize Stagehand with Browserbase for cloud
+                        const browserSettings: any = {
+                            blockAds: false,
+                            viewport: {
+                                width: 1280,
+                                height: 800,
+                            },
+                            solveCaptchas: true,
+                        };
 
-                    stagehand = new Stagehand({
-                        apiKey: process.env.BROWSERBASE_API_KEY,
-                        projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
-                        env: "BROWSERBASE",
-                        disablePino: true,
-                        modelClientOptions: { apiKey: process.env.GOOGLE_API_KEY },
-                        logInferenceToFile: false,
-                        verbose: 0,
-                        browserbaseSessionCreateParams: {
+                        stagehand = new Stagehand({
+                            apiKey: process.env.BROWSERBASE_API_KEY,
                             projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
-                            browserSettings,
-                            timeout: 3600, // 1 hour max
-                            keepAlive: true, // Keep session alive across all prompts
-                        }
-                    });
+                            env: "BROWSERBASE",
+                            disablePino: true,
+                            modelClientOptions: { apiKey: process.env.GOOGLE_API_KEY },
+                            logInferenceToFile: false,
+                            verbose: 0,
+                            browserbaseSessionCreateParams: {
+                                projectId: "ceaa3d2e-6ab5-4694-bdcc-a06f060b2137",
+                                browserSettings,
+                                timeout: 3600, // 1 hour max
+                                keepAlive: true, // Keep session alive across all prompts
+                            }
+                        });
+                    } else {
+                        // Initialize Stagehand with local browser
+                        stagehand = new Stagehand({
+                            env: 'LOCAL',
+                            disablePino: true,
+                            modelClientOptions: { apiKey: process.env.GOOGLE_API_KEY },
+                            localBrowserLaunchOptions: {
+                                headless: false,
+                                viewport: {
+                                    width: 1280,
+                                    height: 800,
+                                },
+                            }
+                        });
+                    }
 
                     const initResult = await stagehand.init();
                     const page = stagehand.page;
 
-                    // Add session to session manager for live viewing
-                    const browserbaseSessionId = initResult.sessionId;
-                    const debugUrl = initResult.debugUrl;
-                    const sessionUrl = initResult.sessionUrl;
+                    // Add session to session manager for live viewing (only for cloud sessions)
+                    if (useCloudEnv) {
+                        const browserbaseSessionId = initResult.sessionId;
+                        const debugUrl = initResult.debugUrl;
+                        const sessionUrl = initResult.sessionUrl;
 
-                    sessionManager.addSession(
-                        sessionId,
-                        stagehand,
-                        browserbaseSessionId,
-                        debugUrl,
-                        sessionUrl,
-                        'Sequential Wizard',
-                        websiteTarget
-                    );
+                        sessionManager.addSession(
+                            sessionId,
+                            stagehand,
+                            browserbaseSessionId,
+                            debugUrl,
+                            sessionUrl,
+                            'Sequential Wizard',
+                            websiteTarget
+                        );
 
-                    // Send session info for live viewing
-                    if (debugUrl) {
-                        const sessionData = JSON.stringify({
-                            type: 'session',
-                            session: {
-                                browserbaseSessionId,
-                                debugUrl,
-                                sessionUrl,
-                            }
-                        });
-                        controller.enqueue(encoder.encode(`data: ${sessionData}\n\n`));
+                        // Send session info for live viewing
+                        if (debugUrl) {
+                            const sessionData = JSON.stringify({
+                                type: 'session',
+                                session: {
+                                    browserbaseSessionId,
+                                    debugUrl,
+                                    sessionUrl,
+                                }
+                            });
+                            controller.enqueue(encoder.encode(`data: ${sessionData}\n\n`));
+                        }
                     }
 
                     sendStatus('Navigating to website...');
@@ -283,8 +303,10 @@ export async function POST(request: NextRequest) {
                     });
                     controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
                 } finally {
-                    // Remove session from session manager
-                    sessionManager.removeSession(sessionId);
+                    // Remove session from session manager (only if it was added for cloud)
+                    if (useCloudEnv) {
+                        sessionManager.removeSession(sessionId);
+                    }
 
                     // Clean up the session
                     if (stagehand) {
