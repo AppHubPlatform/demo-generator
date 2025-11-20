@@ -437,13 +437,20 @@ export default function Home() {
     let capturedLoggedInUrl = '';
 
     try {
+      // Normalize URL - add https:// if no protocol is specified
+      let normalizedUrl = wizardWebsite.trim();
+      if (normalizedUrl && !normalizedUrl.match(/^https?:\/\//i)) {
+        normalizedUrl = 'https://' + normalizedUrl;
+        setWizardWebsite(normalizedUrl); // Update the input field too
+      }
+
       const response = await fetch('/api/wizard-research', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          website: wizardWebsite,
+          website: normalizedUrl,
           useCloudEnv,
           requiresLogin,
           loginUsername: requiresLogin ? loginUsername : undefined,
@@ -643,6 +650,13 @@ export default function Home() {
     setResearchStatus(''); // Reuse research status for progress updates
 
     try {
+      // Normalize URL - add https:// if no protocol is specified
+      let normalizedUrl = wizardWebsite.trim();
+      if (normalizedUrl && !normalizedUrl.match(/^https?:\/\//i)) {
+        normalizedUrl = 'https://' + normalizedUrl;
+        setWizardWebsite(normalizedUrl); // Update the input field too
+      }
+
       // Prepare prompts - each prompt contains multiple steps
       const listOfInstructionsPrompts = wizardPrompts.map(prompt =>
         prompt.split('\n').filter(step => step.trim())
@@ -652,7 +666,7 @@ export default function Home() {
       // Otherwise, run in parallel for better performance
       if (requiresLogin) {
         const payload = {
-          websiteTarget: wizardWebsite,
+          websiteTarget: normalizedUrl,
           listOfInstructionsPrompts,
           useCloudEnv,
           enableLogRocket,
@@ -727,7 +741,7 @@ export default function Home() {
 
         const payload = {
           mode: 'mapped',
-          websiteTarget: wizardWebsite,
+          websiteTarget: normalizedUrl,
           listOfInstructionsPrompts,
           useCloudEnv,
           enableLogRocket,

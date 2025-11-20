@@ -41,6 +41,51 @@ export default function LogRocketProvider({ children }: { children: React.ReactN
         .catch(err => {
           console.error('[LogRocket] Error fetching user info:', err);
         });
+
+      // Global error handler for JavaScript errors
+      const handleError = (event: ErrorEvent) => {
+        console.error('[Global Error Handler]', event.error || event.message);
+
+        LogRocket.captureException(event.error || new Error(event.message), {
+          tags: {
+            errorType: 'JavaScript Error',
+            source: event.filename || 'unknown',
+          },
+          extra: {
+            message: event.message,
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      };
+
+      // Global handler for unhandled promise rejections
+      const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+        console.error('[Unhandled Promise Rejection]', event.reason);
+
+        const error = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
+
+        LogRocket.captureException(error, {
+          tags: {
+            errorType: 'Unhandled Promise Rejection',
+          },
+          extra: {
+            reason: String(event.reason),
+            timestamp: new Date().toISOString(),
+          },
+        });
+      };
+
+      window.addEventListener('error', handleError);
+      window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+      // Cleanup function to remove event listeners
+      return () => {
+        window.removeEventListener('error', handleError);
+        window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      };
     }
   }, []);
 
